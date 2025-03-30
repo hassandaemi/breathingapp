@@ -54,7 +54,7 @@ class AppTheme {
         seedColor: primaryColor,
         primary: primaryColor,
         secondary: accentColor,
-        background: backgroundColor,
+        surface: backgroundColor, // Replaced 'background' with 'surface'
       ),
       textTheme: const TextTheme(
         displayLarge: titleStyle,

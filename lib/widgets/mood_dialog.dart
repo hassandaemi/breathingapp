@@ -4,7 +4,7 @@ import '../database/database_helper.dart';
 class MoodDialog extends StatelessWidget {
   final VoidCallback onCompleted;
 
-  const MoodDialog({Key? key, required this.onCompleted}) : super(key: key);
+  const MoodDialog({super.key, required this.onCompleted});
 
   @override
   Widget build(BuildContext context) {
@@ -19,57 +19,68 @@ class MoodDialog extends StatelessWidget {
   }
 
   Widget _buildDialogContent(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.rectangle,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 10.0,
-            offset: Offset(0.0, 10.0),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          const Text(
-            'How do you feel now?',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: <Widget>[
-              _buildMoodButton(context, '😊', 'Happy'),
-              _buildMoodButton(context, '😌', 'Relaxed'),
-              _buildMoodButton(context, '😐', 'Neutral'),
-              _buildMoodButton(context, '😓', 'Tired'),
-              _buildMoodButton(context, '😡', 'Angry'),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double dialogWidth = MediaQuery.of(context).size.width * 0.8;
+        final double dialogPadding = MediaQuery.of(context).size.width * 0.05;
+
+        return Container(
+          width: dialogWidth,
+          padding: EdgeInsets.all(dialogPadding),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.rectangle,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 10.0,
+                offset: Offset(0.0, 10.0),
+              ),
             ],
           ),
-          const SizedBox(height: 24),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              onCompleted();
-            },
-            child: const Text(
-              'Skip',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const Text(
+                'How do you feel now?',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
+              const SizedBox(height: 24),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: <Widget>[
+                    _buildMoodButton(context, '😊', 'Happy'),
+                    _buildMoodButton(context, '😌', 'Relaxed'),
+                    _buildMoodButton(context, '😐', 'Neutral'),
+                    _buildMoodButton(context, '😓', 'Tired'),
+                    _buildMoodButton(context, '😡', 'Angry'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  onCompleted();
+                },
+                child: const Text(
+                  'Skip',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

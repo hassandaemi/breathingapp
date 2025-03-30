@@ -50,117 +50,199 @@ class SettingsScreen extends StatelessWidget {
     final appState = Provider.of<AppState>(context);
 
     return Expanded(
-      child: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        children: [
-          _buildSettingsCard(
-            title: 'Notifications',
-            description: 'Enable or disable breathing reminders',
-            icon: Icons.notifications,
-            trailing: Switch(
-              value: appState.notificationsEnabled,
-              onChanged: (value) {
-                appState.toggleNotifications();
-              },
-              activeColor: AppTheme.primaryColor,
-            ),
-          ),
-          const SizedBox(height: 15),
-          _buildSettingsCard(
-            title: 'Animation Style',
-            description: 'Change the breathing animation type',
-            icon: Icons.animation,
-            trailing: DropdownButton<String>(
-              value: appState.animationStyle,
-              onChanged: (String? newValue) {
-                if (newValue != null) {
-                  appState.setAnimationStyle(newValue);
-                }
-              },
-              items: const [
-                DropdownMenuItem(
-                  value: 'Circle',
-                  child: Text('Circle'),
+      child: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 500),
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          child: ListView(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            children: [
+              _buildSettingsCard(
+                title: 'Notifications',
+                description: 'Enable or disable breathing reminders',
+                icon: Icons.notifications,
+                trailing: Switch(
+                  value: appState.notificationsEnabled,
+                  onChanged: (value) {
+                    appState.toggleNotifications();
+                  },
+                  activeColor: AppTheme.primaryColor,
                 ),
-                DropdownMenuItem(
-                  value: 'Linear',
-                  enabled: false,
-                  child: Text('Linear (Coming Soon)'),
-                ),
-                DropdownMenuItem(
-                  value: 'Square',
-                  enabled: false,
-                  child: Text('Square (Coming Soon)'),
-                ),
-              ],
-              underline: Container(
-                height: 0,
               ),
-            ),
-          ),
-          const SizedBox(height: 15),
-          _buildSettingsCard(
-            title: 'Sound',
-            description: 'Choose breathing exercise sounds',
-            icon: Icons.music_note,
-            trailing: const Text(
-              'Coming Soon',
-              style: TextStyle(
-                color: Colors.grey,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ),
-          const SizedBox(height: 15),
-          _buildSettingsCard(
-            title: 'Reset Points',
-            description: 'Reset your accumulated points',
-            icon: Icons.refresh,
-            onTap: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Reset Points'),
-                  content: const Text(
-                      'Are you sure you want to reset your points to zero?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Cancel'),
+              const SizedBox(height: 15),
+              _buildSettingsCard(
+                title: 'Animation Style',
+                description: 'Change the breathing animation type',
+                icon: Icons.animation,
+                trailing: DropdownButton<String>(
+                  value: appState.animationStyle,
+                  onChanged: (String? newValue) {
+                    if (newValue != null &&
+                        appState.isStyleUnlocked(newValue)) {
+                      appState.setAnimationStyle(newValue);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                              'Earn more points to unlock $newValue style!'),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  },
+                  items: [
+                    const DropdownMenuItem(
+                      value: 'Circle',
+                      child: Text('Circle'),
                     ),
-                    TextButton(
-                      onPressed: () {
-                        // Reset points
-                        Provider.of<AppState>(context, listen: false)
-                            .addPoints(-appState.points);
-                        Navigator.pop(context);
-                      },
-                      child: const Text('Reset'),
+                    DropdownMenuItem(
+                      value: 'Linear',
+                      enabled: appState.isStyleUnlocked('Linear'),
+                      child: Row(
+                        children: [
+                          const Text('Linear'),
+                          if (!appState.isStyleUnlocked('Linear'))
+                            const Padding(
+                              padding: EdgeInsets.only(left: 8),
+                              child: Icon(Icons.lock, size: 16),
+                            ),
+                        ],
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Square',
+                      enabled: appState.isStyleUnlocked('Square'),
+                      child: Row(
+                        children: [
+                          const Text('Square'),
+                          if (!appState.isStyleUnlocked('Square'))
+                            const Padding(
+                              padding: EdgeInsets.only(left: 8),
+                              child: Icon(Icons.lock, size: 16),
+                            ),
+                        ],
+                      ),
                     ),
                   ],
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 15),
-          _buildSettingsCard(
-            title: 'About',
-            description: 'About Breathly app',
-            icon: Icons.info_outline,
-            onTap: () {
-              showAboutDialog(
-                context: context,
-                applicationName: 'Breathly',
-                applicationVersion: '1.0.0',
-                applicationLegalese: '© 2023 Breathly',
-                children: const [
-                  SizedBox(height: 20),
-                  Text(
-                    'A breathing exercise app designed to help users relax and reduce stress.',
+                  underline: Container(
+                    height: 0,
                   ),
-                ],
-              );
-            },
+                ),
+              ),
+              const SizedBox(height: 15),
+              _buildSettingsCard(
+                title: 'Sound',
+                description: 'Choose breathing exercise sounds',
+                icon: Icons.music_note,
+                onTap: () {
+                  _showSoundSelectionDialog(context);
+                },
+                trailing: ElevatedButton(
+                  onPressed: () {
+                    _showSoundSelectionDialog(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        AppTheme.primaryColor.withAlpha((0.1 * 255).toInt()),
+                    foregroundColor: AppTheme.primaryColor,
+                    elevation: 0,
+                  ),
+                  child: const Text('Select'),
+                ),
+              ),
+              const SizedBox(height: 15),
+              _buildSettingsCard(
+                title: 'Reset Points',
+                description: 'Reset your accumulated points',
+                icon: Icons.refresh,
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Reset Points'),
+                      content: const Text(
+                          'Are you sure you want to reset your points to zero?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            // Reset points
+                            Provider.of<AppState>(context, listen: false)
+                                .addPoints(-appState.points);
+                            Navigator.pop(context);
+                          },
+                          child: const Text('Reset'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 15),
+              _buildSettingsCard(
+                title: 'About',
+                description: 'About Breathly app',
+                icon: Icons.info_outline,
+                onTap: () {
+                  showAboutDialog(
+                    context: context,
+                    applicationName: 'Breathly',
+                    applicationVersion: '1.0.0',
+                    applicationLegalese: '© 2023 Breathly',
+                    children: const [
+                      SizedBox(height: 20),
+                      Text(
+                        'A breathing exercise app designed to help users relax and reduce stress.',
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showSoundSelectionDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sound Selection'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Sound selection will be available in a future update.'),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(
+                  Icons.music_note,
+                  color: AppTheme.primaryColor,
+                  size: 24,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'Coming Soon',
+                  style: TextStyle(
+                    color: AppTheme.primaryColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
           ),
         ],
       ),
@@ -179,9 +261,10 @@ class SettingsScreen extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       child: ListTile(
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         leading: Icon(
           icon,
           color: AppTheme.primaryColor,

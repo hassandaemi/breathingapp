@@ -103,16 +103,25 @@ class _BreathingAnimationState extends State<BreathingAnimation>
           height: _animation.value,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+            color: Theme.of(context)
+                .colorScheme
+                .primary
+                .withAlpha((0.2 * 255).toInt()),
             boxShadow: [
               BoxShadow(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                color: Theme.of(context)
+                    .colorScheme
+                    .primary
+                    .withAlpha((0.3 * 255).toInt()),
                 blurRadius: 15,
                 spreadRadius: 5,
               ),
             ],
             border: Border.all(
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+              color: Theme.of(context)
+                  .colorScheme
+                  .primary
+                  .withAlpha((0.5 * 255).toInt()),
               width: 3,
             ),
           ),

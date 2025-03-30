@@ -13,6 +13,21 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appState = Provider.of<AppState>(context);
+
+    // Check if we've unlocked new animation styles
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (appState.isStyleUnlocked('Linear') &&
+          !appState.unlockedAnimations['Linear']!) {
+        _showUnlockDialog(context, 'Linear Animation Style',
+            'You\'ve unlocked the Linear animation style!');
+      } else if (appState.isStyleUnlocked('Square') &&
+          !appState.unlockedAnimations['Square']!) {
+        _showUnlockDialog(context, 'Square Animation Style',
+            'You\'ve unlocked the Square animation style!');
+      }
+    });
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -26,9 +41,15 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 20),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  'Breathly',
-                  style: AppTheme.titleStyle,
+                child: Row(
+                  children: [
+                    Text(
+                      'Breathly',
+                      style: AppTheme.titleStyle,
+                    ),
+                    const Spacer(),
+                    _buildAnimationStyleDropdown(context, appState),
+                  ],
                 ),
               ),
               const SizedBox(height: 8),
@@ -39,7 +60,19 @@ class HomeScreen extends StatelessWidget {
                   style: AppTheme.subtitleStyle,
                 ),
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 10),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  appState.getNextUnlockMessage(),
+                  style: const TextStyle(
+                    color: AppTheme.primaryColor,
+                    fontStyle: FontStyle.italic,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
               Expanded(
                 child: _buildExercisesList(context),
               ),
@@ -50,11 +83,27 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  void _showUnlockDialog(BuildContext context, String title, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Great!'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAppBar(BuildContext context) {
     final appState = Provider.of<AppState>(context);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -73,6 +122,69 @@ class HomeScreen extends StatelessWidget {
             color: AppTheme.primaryColor,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAnimationStyleDropdown(BuildContext context, AppState appState) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: AppTheme.primaryColor,
+          width: 1.5,
+        ),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: DropdownButton<String>(
+        value: appState.animationStyle,
+        onChanged: (String? newValue) {
+          if (newValue != null && appState.isStyleUnlocked(newValue)) {
+            appState.setAnimationStyle(newValue);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Earn more points to unlock $newValue style!'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        },
+        items: [
+          DropdownMenuItem(
+            value: 'Circle',
+            child: const Text('Circle'),
+          ),
+          DropdownMenuItem(
+            value: 'Linear',
+            child: Row(
+              children: [
+                const Text('Linear'),
+                if (!appState.isStyleUnlocked('Linear'))
+                  const Padding(
+                    padding: EdgeInsets.only(left: 8),
+                    child: Icon(Icons.lock, size: 16),
+                  ),
+              ],
+            ),
+          ),
+          DropdownMenuItem(
+            value: 'Square',
+            child: Row(
+              children: [
+                const Text('Square'),
+                if (!appState.isStyleUnlocked('Square'))
+                  const Padding(
+                    padding: EdgeInsets.only(left: 8),
+                    child: Icon(Icons.lock, size: 16),
+                  ),
+              ],
+            ),
+          ),
+        ],
+        icon: const Icon(Icons.animation, size: 16),
+        underline: Container(height: 0),
+        isDense: true,
       ),
     );
   }

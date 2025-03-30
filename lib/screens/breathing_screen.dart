@@ -223,13 +223,38 @@ class _BreathingScreenState extends State<BreathingScreen> {
   }
 
   Widget _buildAnimation() {
+    // Adjust animation durations based on exercise type
     Duration duration;
     if (_currentPhase == "inhale") {
-      duration = Duration(seconds: widget.exercise.inhaleTime);
+      switch (widget.exercise.title) {
+        case "Calm":
+          duration = const Duration(seconds: 4);
+          break;
+        case "Sleep":
+          duration = const Duration(seconds: 4);
+          break;
+        case "Energy":
+          duration = const Duration(seconds: 2);
+          break;
+        default:
+          duration = Duration(seconds: widget.exercise.inhaleTime);
+      }
     } else if (_currentPhase == "hold") {
       duration = Duration(seconds: widget.exercise.holdTime);
     } else if (_currentPhase == "exhale") {
-      duration = Duration(seconds: widget.exercise.exhaleTime);
+      switch (widget.exercise.title) {
+        case "Calm":
+          duration = const Duration(seconds: 4);
+          break;
+        case "Sleep":
+          duration = const Duration(seconds: 7);
+          break;
+        case "Energy":
+          duration = const Duration(seconds: 2);
+          break;
+        default:
+          duration = Duration(seconds: widget.exercise.exhaleTime);
+      }
     } else {
       duration = const Duration(seconds: 1);
     }
@@ -241,9 +266,9 @@ class _BreathingScreenState extends State<BreathingScreen> {
               height: 200,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: widget.exercise.color.withOpacity(0.2),
+                color: widget.exercise.color.withAlpha((0.2 * 255).toInt()),
                 border: Border.all(
-                  color: widget.exercise.color.withOpacity(0.5),
+                  color: widget.exercise.color.withAlpha((0.5 * 255).toInt()),
                   width: 3,
                 ),
               ),
@@ -296,19 +321,25 @@ class _BreathingScreenState extends State<BreathingScreen> {
   }
 
   Widget _buildControlButton() {
-    return FloatingActionButton(
-      onPressed: _isCompleted
-          ? () => Navigator.pop(context)
-          : _isRunning
-              ? _pauseBreathing
-              : _startBreathing,
-      backgroundColor: _isCompleted ? Colors.green : widget.exercise.color,
-      child: Icon(
-        _isCompleted
-            ? Icons.check
+    return SizedBox(
+      width: 60, // Increased FAB size
+      height: 60, // Increased FAB size
+      child: FloatingActionButton(
+        onPressed: _isCompleted
+            ? () => Navigator.pop(context)
             : _isRunning
-                ? Icons.pause
-                : Icons.play_arrow,
+                ? _pauseBreathing
+                : _startBreathing,
+        backgroundColor: _isCompleted ? Colors.green : widget.exercise.color,
+        elevation: 8, // Add shadow for depth
+        child: Icon(
+          _isCompleted
+              ? Icons.check
+              : _isRunning
+                  ? Icons.pause
+                  : Icons.play_arrow,
+          size: 28, // Larger icon size
+        ),
       ),
     );
   }
