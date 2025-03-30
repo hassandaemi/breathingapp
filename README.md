@@ -1,16 +1,45 @@
-# breathe
+# Breathly
 
-A new Flutter project.
+A Flutter application designed to help users practice breathing exercises to reduce stress and improve mental wellbeing.
+
+## Features
+
+- **Main Screen** with a clean UI displaying different breathing exercises
+- **Breathing Exercises**:
+  - Calm (4-4-4 breathing)
+  - Sleep (4-7-8 breathing)
+  - Energy (rapid breathing)
+- **Gamification** with points system
+- **Mood Tracking** after each exercise
+- **Settings** for personalization
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+### Prerequisites
 
-A few resources to get you started if this is your first Flutter project:
+- Flutter SDK (^3.6.0)
+- Dart SDK (^3.6.0)
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+### Installation
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+1. Clone the repository
+2. Navigate to the project directory
+3. Install dependencies:
+   ```bash
+   flutter pub get
+   ```
+4. Run the app:
+   ```bash
+   flutter run
+   ```
+
+## Technologies Used
+
+- Flutter
+- Provider for state management
+- SQLite for local database storage
+- SharedPreferences for persistent settings
+
+## License
+
+This project is licensed under the MIT License.
