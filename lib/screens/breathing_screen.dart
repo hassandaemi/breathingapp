@@ -6,6 +6,7 @@ import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/breathing_animation.dart';
 import '../widgets/mood_dialog.dart';
+import 'profile_screen.dart';
 
 class BreathingScreen extends StatefulWidget {
   final Exercise exercise;
@@ -108,9 +109,17 @@ class _BreathingScreenState extends State<BreathingScreen> {
   void _completeExercise() {
     _timer?.cancel();
 
-    // Add points
+    // Get app state
     final appState = Provider.of<AppState>(context, listen: false);
+
+    // Add points for completing exercise
     appState.addPoints(10);
+
+    // Update daily streak
+    appState.updateDailyStreak();
+
+    // Track that this exercise type was completed
+    appState.checkAllExercisesChallenge(widget.exercise.title);
 
     setState(() {
       _isRunning = false;
@@ -118,7 +127,7 @@ class _BreathingScreenState extends State<BreathingScreen> {
       _currentPhase = "Completed";
     });
 
-    // Show mood dialog
+    // Show mood dialog after a slight delay
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
         showDialog(
@@ -128,6 +137,8 @@ class _BreathingScreenState extends State<BreathingScreen> {
             return MoodDialog(
               onCompleted: () {
                 if (mounted) {
+                  // Check if a new title was earned
+                  _checkForTitleUnlock(appState);
                   Navigator.pop(context);
                 }
               },
@@ -136,6 +147,98 @@ class _BreathingScreenState extends State<BreathingScreen> {
         );
       }
     });
+  }
+
+  // Show congratulations dialog if a new title was earned
+  void _checkForTitleUnlock(AppState appState) {
+    if (appState.points >= 50 && appState.points < 60) {
+      _showTitleUnlockDialog("Calm Seeker");
+    } else if (appState.points >= 100 &&
+        appState.points < 110 &&
+        appState.completedChallenges.isNotEmpty) {
+      _showTitleUnlockDialog("Breath Master");
+    } else if (appState.points >= 200 &&
+        appState.points < 210 &&
+        appState.completedChallenges.length >= 2) {
+      _showTitleUnlockDialog("Breath Legend");
+    }
+  }
+
+  void _showTitleUnlockDialog(String title) {
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('New Title Unlocked!'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.emoji_events,
+              color: Colors.amber,
+              size: 64,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Congratulations! You\'ve earned the title:',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.grey[700],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              Navigator.push(
+                context,
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) =>
+                      const ProfileScreen(),
+                  transitionsBuilder:
+                      (context, animation, secondaryAnimation, child) {
+                    // Smooth 200ms transition
+                    const begin = Offset(1.0, 0.0);
+                    const end = Offset.zero;
+                    const curve = Curves.easeInOut;
+
+                    var tween = Tween(begin: begin, end: end)
+                        .chain(CurveTween(curve: curve));
+                    var offsetAnimation = animation.drive(tween);
+
+                    return SlideTransition(
+                      position: offsetAnimation,
+                      child: child,
+                    );
+                  },
+                  transitionDuration: const Duration(milliseconds: 200),
+                ),
+              );
+            },
+            child: const Text('View Profile'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text('Great!'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
