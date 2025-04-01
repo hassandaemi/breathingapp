@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
+import 'mood_analysis_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -65,11 +66,30 @@ class SettingsScreen extends StatelessWidget {
                   value: appState.notificationsEnabled,
                   onChanged: (value) {
                     appState.toggleNotifications();
+                    if (value) {
+                      _showNotificationTimePicker(context, appState);
+                    }
                   },
                   activeColor: AppTheme.primaryColor,
                 ),
               ),
               const SizedBox(height: 15),
+              if (appState.notificationsEnabled)
+                _buildSettingsCard(
+                  title: 'Reminder Time',
+                  description: 'Set your daily breathing reminder time',
+                  icon: Icons.access_time,
+                  onTap: () => _showNotificationTimePicker(context, appState),
+                  trailing: Text(
+                    appState.reminderTime ?? '8:00 PM',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                ),
+              if (appState.notificationsEnabled) const SizedBox(height: 15),
               _buildSettingsCard(
                 title: 'Animation Style',
                 description: 'Change the breathing animation type',
@@ -135,51 +155,34 @@ class SettingsScreen extends StatelessWidget {
                 description: 'Choose breathing exercise sounds',
                 icon: Icons.music_note,
                 onTap: () {
-                  _showSoundSelectionDialog(context);
+                  _showSoundSelectionDialog(context, appState);
                 },
-                trailing: ElevatedButton(
-                  onPressed: () {
-                    _showSoundSelectionDialog(context);
+                trailing: Switch(
+                  value: appState.soundEnabled,
+                  onChanged: (value) {
+                    appState.toggleSound();
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        AppTheme.primaryColor.withAlpha((0.1 * 255).toInt()),
-                    foregroundColor: AppTheme.primaryColor,
-                    elevation: 0,
-                  ),
-                  child: const Text('Select'),
+                  activeColor: AppTheme.primaryColor,
                 ),
               ),
               const SizedBox(height: 15),
               _buildSettingsCard(
-                title: 'Reset Points',
-                description: 'Reset your accumulated points',
-                icon: Icons.refresh,
+                title: 'Mood Analysis',
+                description: 'View your mood history and trends',
+                icon: Icons.insights,
                 onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('Reset Points'),
-                      content: const Text(
-                          'Are you sure you want to reset your points to zero?'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Cancel'),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            // Reset points
-                            Provider.of<AppState>(context, listen: false)
-                                .addPoints(-appState.points);
-                            Navigator.pop(context);
-                          },
-                          child: const Text('Reset'),
-                        ),
-                      ],
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MoodAnalysisScreen(),
                     ),
                   );
                 },
+                trailing: const Icon(
+                  Icons.arrow_forward_ios,
+                  size: 20,
+                  color: Colors.grey,
+                ),
               ),
               const SizedBox(height: 15),
               _buildSettingsCard(
@@ -208,7 +211,7 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  void _showSoundSelectionDialog(BuildContext context) {
+  void _showSoundSelectionDialog(BuildContext context, AppState appState) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -216,37 +219,149 @@ class SettingsScreen extends StatelessWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Sound selection will be available in a future update.'),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(
-                  Icons.music_note,
-                  color: AppTheme.primaryColor,
-                  size: 24,
-                ),
-                SizedBox(width: 8),
-                Text(
-                  'Coming Soon',
-                  style: TextStyle(
-                    color: AppTheme.primaryColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
-                ),
-              ],
+            SwitchListTile(
+              title: const Text('Enable Sound'),
+              value: appState.soundEnabled,
+              onChanged: (bool value) {
+                appState.toggleSound();
+                Navigator.pop(context);
+              },
+              activeColor: AppTheme.primaryColor,
+            ),
+            const Divider(),
+            const Text('Select Sound Type:'),
+            const SizedBox(height: 16),
+            _buildSoundOption(context, appState, 'Nature',
+                'Calming nature sounds', Icons.terrain, 'nature'),
+            _buildSoundOption(context, appState, 'Ocean', 'Gentle ocean waves',
+                Icons.waves, 'ocean'),
+            _buildSoundOption(
+                context,
+                appState,
+                'Meditation',
+                'Peaceful meditation bells',
+                Icons.self_improvement,
+                'meditation'),
+            const SizedBox(height: 10),
+            const Text(
+              'More sounds coming soon!',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+                fontStyle: FontStyle.italic,
+              ),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            child: const Text('Close'),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildSoundOption(
+    BuildContext context,
+    AppState appState,
+    String title,
+    String description,
+    IconData icon,
+    String soundKey,
+  ) {
+    return ListTile(
+      leading: Icon(icon, color: AppTheme.primaryColor),
+      title: Text(title),
+      subtitle: Text(
+        description,
+        style: const TextStyle(fontSize: 12),
+      ),
+      trailing: Radio<String>(
+        value: soundKey,
+        groupValue: appState.selectedSound,
+        onChanged: appState.soundEnabled
+            ? (value) {
+                if (value != null) {
+                  appState.setSelectedSound(value);
+                  Navigator.pop(context);
+                }
+              }
+            : null,
+        activeColor: AppTheme.primaryColor,
+      ),
+      enabled: appState.soundEnabled,
+      onTap: appState.soundEnabled
+          ? () {
+              appState.setSelectedSound(soundKey);
+              Navigator.pop(context);
+            }
+          : null,
+    );
+  }
+
+  void _showNotificationTimePicker(
+      BuildContext context, AppState appState) async {
+    final TimeOfDay? pickedTime = await showTimePicker(
+      context: context,
+      initialTime: _parseTimeOfDay(appState.reminderTime) ?? TimeOfDay.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppTheme.primaryColor,
+              onPrimary: Colors.white,
+              onSurface: AppTheme.textColor,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (pickedTime != null) {
+      final formattedTime = _formatTimeOfDay(pickedTime);
+      appState.setReminderTime(formattedTime);
+
+      // Schedule notification for this time
+      appState.scheduleNotification();
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Daily reminder set for $formattedTime'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  TimeOfDay? _parseTimeOfDay(String? timeString) {
+    if (timeString == null) return null;
+
+    // Parse time like "8:00 PM"
+    final parts = timeString.split(' ');
+    if (parts.length != 2) return null;
+
+    final timeParts = parts[0].split(':');
+    if (timeParts.length != 2) return null;
+
+    int hour = int.tryParse(timeParts[0]) ?? 0;
+    final int minute = int.tryParse(timeParts[1]) ?? 0;
+
+    if (parts[1] == 'PM' && hour < 12) hour += 12;
+    if (parts[1] == 'AM' && hour == 12) hour = 0;
+
+    return TimeOfDay(hour: hour, minute: minute);
+  }
+
+  String _formatTimeOfDay(TimeOfDay time) {
+    final hour = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
+    final minute = time.minute.toString().padLeft(2, '0');
+    final period = time.period == DayPeriod.am ? 'AM' : 'PM';
+    return '$hour:$minute $period';
   }
 
   Widget _buildSettingsCard({

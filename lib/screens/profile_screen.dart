@@ -231,9 +231,22 @@ class ProfileScreen extends StatelessWidget {
                           appState.challengeDescriptions[challengeId] ??
                               'Unknown Challenge';
                       return _buildChallengeItem(context, challengeName,
-                          _getChallengeIcon(challengeId));
+                          _getChallengeIcon(challengeId), true);
                     },
                   ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Challenge Progress',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 150,
+            child: _buildChallengeProgressList(context, appState),
           ),
           const SizedBox(height: 20),
           const Text(
@@ -282,7 +295,8 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildChallengeItem(BuildContext context, String name, IconData icon) {
+  Widget _buildChallengeItem(
+      BuildContext context, String name, IconData icon, bool completed) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -300,20 +314,149 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 16),
-          Text(
-            name,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
+          Expanded(
+            child: Text(
+              name,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
-          const Spacer(),
-          const Icon(
-            Icons.check_circle,
-            color: Colors.green,
-            size: 20,
+          if (completed)
+            const Icon(
+              Icons.check_circle,
+              color: Colors.green,
+              size: 20,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChallengeProgressList(BuildContext context, AppState appState) {
+    // Get all challenge IDs that haven't been completed yet
+    final incompleteChallenges = appState.challengeRequirements.keys
+        .where((id) => !appState.completedChallenges.contains(id))
+        .toList();
+
+    if (incompleteChallenges.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.emoji_events,
+              size: 36,
+              color: Colors.amber,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'All challenges completed!',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      scrollDirection: Axis.horizontal,
+      itemCount: incompleteChallenges.length,
+      itemBuilder: (context, index) {
+        final challengeId = incompleteChallenges[index];
+        final challengeName =
+            appState.challengeDescriptions[challengeId] ?? 'Unknown Challenge';
+        final progress = appState.getChallengeProgress(challengeId);
+
+        return _buildChallengeProgressCard(
+          context,
+          challengeName,
+          _getChallengeIcon(challengeId),
+          progress['progress'],
+          progress['target'],
+        );
+      },
+    );
+  }
+
+  Widget _buildChallengeProgressCard(
+    BuildContext context,
+    String name,
+    IconData icon,
+    int progress,
+    int target,
+  ) {
+    final double percentage =
+        target > 0 ? (progress / target).clamp(0.0, 1.0) : 0.0;
+
+    return Container(
+      width: 140,
+      margin: const EdgeInsets.only(right: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.withAlpha((0.1 * 255).toInt())),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withAlpha((0.1 * 255).toInt()),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
         ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withAlpha((0.1 * 255).toInt()),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                color: AppTheme.primaryColor,
+                size: 22,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              name,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const Spacer(),
+            const SizedBox(height: 4),
+            Text(
+              target > 0 ? '$progress/$target' : 'In Progress',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: LinearProgressIndicator(
+                value: percentage,
+                backgroundColor: Colors.grey.withAlpha((0.1 * 255).toInt()),
+                minHeight: 6,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -389,6 +532,12 @@ class ProfileScreen extends StatelessWidget {
         return Icons.animation;
       case 'all_exercises':
         return Icons.fitness_center;
+      case 'exercises_10':
+        return Icons.ten_k;
+      case 'exercises_50':
+        return Icons.confirmation_number;
+      case 'level_2':
+        return Icons.upgrade;
       default:
         return Icons.emoji_events;
     }

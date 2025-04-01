@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:audioplayers/audioplayers.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/mood_dialog.dart';
@@ -20,6 +21,8 @@ class BreathingScreen extends StatefulWidget {
 class _BreathingScreenState extends State<BreathingScreen>
     with TickerProviderStateMixin {
   late AnimationController _controller;
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  bool _isAudioInitialized = false;
 
   bool _isRunning = false;
   bool _isPaused = false;
@@ -52,6 +55,64 @@ class _BreathingScreenState extends State<BreathingScreen>
       });
 
     _prepareForStart();
+    _initAudio();
+  }
+
+  Future<void> _initAudio() async {
+    try {
+      // This is just preparation for the actual audio files
+      // In a real implementation, proper asset paths would be used
+      _isAudioInitialized = true;
+    } catch (e) {
+      debugPrint('Error initializing audio: $e');
+    }
+  }
+
+  void _playPhaseSound(String phase) async {
+    final appState = Provider.of<AppState>(context, listen: false);
+    if (!appState.soundEnabled || !_isAudioInitialized) return;
+
+    try {
+      // This is a placeholder for actual audio file paths
+      // In a production app, you would have real audio files in your assets
+      String audioPath;
+      switch (phase) {
+        case 'inhale':
+          audioPath = 'assets/sounds/${appState.selectedSound}/inhale.mp3';
+          break;
+        case 'hold':
+          audioPath = 'assets/sounds/${appState.selectedSound}/hold.mp3';
+          break;
+        case 'exhale':
+          audioPath = 'assets/sounds/${appState.selectedSound}/exhale.mp3';
+          break;
+        case 'completed':
+          audioPath = 'assets/sounds/${appState.selectedSound}/complete.mp3';
+          break;
+        default:
+          audioPath = 'assets/sounds/${appState.selectedSound}/inhale.mp3';
+      }
+
+      // For now, we'll use a beep sound as a placeholder
+      // In a production app, you would use actual audio files
+      // await _audioPlayer.play(AssetSource(audioPath));
+
+      // For now, play the beep at different volumes based on the phase
+      await _audioPlayer.stop();
+
+      // We don't actually play a sound here since we don't have the audio files
+      // This is just showing how the implementation would work
+      debugPrint('Would play sound: $audioPath');
+    } catch (e) {
+      debugPrint('Error playing sound: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _audioPlayer.dispose();
+    super.dispose();
   }
 
   void _prepareForStart() {
@@ -131,6 +192,9 @@ class _BreathingScreenState extends State<BreathingScreen>
       _controller.reset();
     });
 
+    // Play sound for the new phase
+    _playPhaseSound(_currentPhaseKey.replaceAll(RegExp(r'[0-9]+\$'), ''));
+
     if (_isRunning && !_isPaused) {
       _controller.forward();
     }
@@ -157,6 +221,9 @@ class _BreathingScreenState extends State<BreathingScreen>
       _currentPhaseKey = "completed";
       _currentPhaseDuration = 0;
     });
+
+    // Play completion sound
+    _playPhaseSound('completed');
 
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
@@ -246,12 +313,6 @@ class _BreathingScreenState extends State<BreathingScreen>
         ],
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
   }
 
   @override

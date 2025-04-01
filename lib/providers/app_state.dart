@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../main.dart';
 
 // Define the BreathingTechnique class outside AppState
 class BreathingTechnique {
@@ -31,16 +33,37 @@ class AppState extends ChangeNotifier {
   int _level = 0; // Current user level
   int _dailyStreak = 0; // Track consecutive days
   String _lastExerciseDate = ''; // Track last exercise date
+  int _exercisesCompleted = 0; // Track total completed exercises
+  bool _soundEnabled = false; // Sound is disabled by default
+  String _selectedSound = 'nature'; // Default sound option
+  String? _reminderTime; // Daily reminder time
 
   // List of completed challenges
   List<String> _completedChallenges = [];
 
-  // Challenge definitions
+  // Challenge definitions with descriptions and requirements
   final Map<String, String> _challengeDescriptions = {
     'streak_7': '7-Day Streak',
     'streak_30': '30-Day Streak',
     'all_styles': 'Animation Master',
     'all_exercises': 'Exercise Explorer',
+    'exercises_10': '10 Exercises Completed',
+    'exercises_50': '50 Exercises Completed',
+    'level_2': 'Level 2 Achieved',
+  };
+
+  // Challenge requirements and tracking info
+  final Map<String, Map<String, dynamic>> _challengeRequirements = {
+    'streak_7': {'type': 'streak', 'target': 7},
+    'streak_30': {'type': 'streak', 'target': 30},
+    'all_styles': {'type': 'styles', 'target': 3},
+    'all_exercises': {
+      'type': 'exercises',
+      'target': -1
+    }, // Special case: all techniques
+    'exercises_10': {'type': 'count', 'target': 10},
+    'exercises_50': {'type': 'count', 'target': 50},
+    'level_2': {'type': 'level', 'target': 2},
   };
 
   // Available animation styles and their point thresholds
@@ -211,6 +234,12 @@ class AppState extends ChangeNotifier {
   bool get notificationsEnabled => _notificationsEnabled;
   Map<String, int> get animationStyles => _animationStyles;
   Map<String, bool> get unlockedAnimations => _unlockedAnimations;
+  int get exercisesCompleted => _exercisesCompleted;
+  Map<String, Map<String, dynamic>> get challengeRequirements =>
+      _challengeRequirements;
+  bool get soundEnabled => _soundEnabled;
+  String get selectedSound => _selectedSound;
+  String? get reminderTime => _reminderTime;
 
   // Getter for breathing techniques
   List<BreathingTechnique> get breathingTechniques => _breathingTechniques;
@@ -224,6 +253,9 @@ class AppState extends ChangeNotifier {
   void addPoints(int value) {
     int previousPoints = _points;
     _points += value;
+
+    // Increment completed exercises count
+    _exercisesCompleted++;
 
     // Update level when points change
     _updateLevel();
@@ -248,6 +280,12 @@ class AppState extends ChangeNotifier {
       _checkAnimationMasterChallenge();
     }
 
+    // Check exercise count challenges
+    _checkExerciseCountChallenges();
+
+    // Check level-based challenges
+    _checkLevelChallenges();
+
     _saveToPrefs();
     notifyListeners();
   }
@@ -257,6 +295,7 @@ class AppState extends ChangeNotifier {
     int newLevel = _points ~/ 100;
     if (newLevel != _level) {
       _level = newLevel;
+      _checkLevelChallenges();
     }
   }
 
@@ -294,12 +333,7 @@ class AppState extends ChangeNotifier {
         _dailyStreak++;
 
         // Check streak challenges
-        if (_dailyStreak == 7 && !_completedChallenges.contains('streak_7')) {
-          _completedChallenges.add('streak_7');
-        }
-        if (_dailyStreak == 30 && !_completedChallenges.contains('streak_30')) {
-          _completedChallenges.add('streak_30');
-        }
+        _checkStreakChallenges();
       } else if (difference > 1) {
         // Streak broken
         _dailyStreak = 1;
@@ -309,6 +343,40 @@ class AppState extends ChangeNotifier {
     _lastExerciseDate = today;
     _saveToPrefs();
     notifyListeners();
+  }
+
+  // Check streak-based challenges
+  void _checkStreakChallenges() {
+    if (_dailyStreak >= 7 && !_completedChallenges.contains('streak_7')) {
+      _completedChallenges.add('streak_7');
+      notifyListeners();
+    }
+    if (_dailyStreak >= 30 && !_completedChallenges.contains('streak_30')) {
+      _completedChallenges.add('streak_30');
+      notifyListeners();
+    }
+  }
+
+  // Check exercise count challenges
+  void _checkExerciseCountChallenges() {
+    if (_exercisesCompleted >= 10 &&
+        !_completedChallenges.contains('exercises_10')) {
+      _completedChallenges.add('exercises_10');
+      notifyListeners();
+    }
+    if (_exercisesCompleted >= 50 &&
+        !_completedChallenges.contains('exercises_50')) {
+      _completedChallenges.add('exercises_50');
+      notifyListeners();
+    }
+  }
+
+  // Check level-based challenges
+  void _checkLevelChallenges() {
+    if (_level >= 2 && !_completedChallenges.contains('level_2')) {
+      _completedChallenges.add('level_2');
+      notifyListeners();
+    }
   }
 
   // Check if all exercises have been completed
@@ -377,6 +445,92 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Set reminder time
+  void setReminderTime(String time) {
+    _reminderTime = time;
+    _saveToPrefs();
+    notifyListeners();
+  }
+
+  // Toggle sound
+  void toggleSound() {
+    _soundEnabled = !_soundEnabled;
+    _saveToPrefs();
+    notifyListeners();
+  }
+
+  // Set selected sound
+  void setSelectedSound(String sound) {
+    _selectedSound = sound;
+    _saveToPrefs();
+    notifyListeners();
+  }
+
+  // Schedule notification
+  Future<void> scheduleNotification() async {
+    if (!_notificationsEnabled || _reminderTime == null) return;
+
+    try {
+      // Cancel any existing notifications
+      await flutterLocalNotificationsPlugin.cancelAll();
+
+      // Parse reminder time
+      final timeParts = _reminderTime!.split(' ');
+      if (timeParts.length != 2) return;
+
+      final hourMinute = timeParts[0].split(':');
+      if (hourMinute.length != 2) return;
+
+      int hour = int.tryParse(hourMinute[0]) ?? 0;
+      final int minute = int.tryParse(hourMinute[1]) ?? 0;
+
+      // Convert to 24-hour format
+      if (timeParts[1] == 'PM' && hour < 12) hour += 12;
+      if (timeParts[1] == 'AM' && hour == 12) hour = 0;
+
+      // Instead of using zonedSchedule, we'll use a simpler approach initially
+      // For production, you would want to handle timezones properly
+
+      // Schedule the daily notification - using specific builder to avoid ambiguity
+      const AndroidNotificationDetails androidDetails =
+          AndroidNotificationDetails(
+        'breathing_reminder',
+        'Breathing Reminders',
+        channelDescription: 'Daily reminders for breathing exercises',
+        importance: Importance.high,
+        priority: Priority.high,
+        enableVibration: true,
+        // Avoid using big picture style to prevent the ambiguity
+        styleInformation: BigTextStyleInformation(''),
+      );
+
+      const DarwinNotificationDetails iOSDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+
+      const NotificationDetails platformDetails = NotificationDetails(
+        android: androidDetails,
+        iOS: iOSDetails,
+      );
+
+      // For now we'll just use a simple daily notification without exact time
+      await flutterLocalNotificationsPlugin.periodicallyShow(
+        0,
+        'Breathly Reminder',
+        'Take a moment to breathe and relax',
+        RepeatInterval.daily,
+        platformDetails,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      );
+
+      debugPrint('Daily notification scheduled');
+    } catch (e) {
+      debugPrint('Error scheduling notification: $e');
+    }
+  }
+
   // Load data from SharedPreferences
   Future<void> _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
@@ -387,6 +541,10 @@ class AppState extends ChangeNotifier {
     _dailyStreak = prefs.getInt('dailyStreak') ?? 0;
     _lastExerciseDate = prefs.getString('lastExerciseDate') ?? '';
     _completedChallenges = prefs.getStringList('completedChallenges') ?? [];
+    _exercisesCompleted = prefs.getInt('exercisesCompleted') ?? 0;
+    _soundEnabled = prefs.getBool('soundEnabled') ?? false;
+    _selectedSound = prefs.getString('selectedSound') ?? 'nature';
+    _reminderTime = prefs.getString('reminderTime');
 
     // Load unlocked animation styles
     _unlockedAnimations['Linear'] = prefs.getBool('unlockedLinear') ?? false;
@@ -413,9 +571,53 @@ class AppState extends ChangeNotifier {
     await prefs.setInt('dailyStreak', _dailyStreak);
     await prefs.setString('lastExerciseDate', _lastExerciseDate);
     await prefs.setStringList('completedChallenges', _completedChallenges);
+    await prefs.setInt('exercisesCompleted', _exercisesCompleted);
+    await prefs.setBool('soundEnabled', _soundEnabled);
+    await prefs.setString('selectedSound', _selectedSound);
+    if (_reminderTime != null) {
+      await prefs.setString('reminderTime', _reminderTime!);
+    }
 
     // Save unlocked animation styles
     await prefs.setBool('unlockedLinear', _unlockedAnimations['Linear']!);
     await prefs.setBool('unlockedSquare', _unlockedAnimations['Square']!);
+  }
+
+  // Helper method to check challenge progress
+  Map<String, dynamic> getChallengeProgress(String challengeId) {
+    if (!_challengeRequirements.containsKey(challengeId)) {
+      return {'completed': false, 'progress': 0, 'target': 0};
+    }
+
+    final requirement = _challengeRequirements[challengeId]!;
+    final bool completed = _completedChallenges.contains(challengeId);
+    int progress = 0;
+    int target = requirement['target'] as int;
+
+    switch (requirement['type']) {
+      case 'streak':
+        progress = _dailyStreak;
+        break;
+      case 'styles':
+        progress =
+            _unlockedAnimations.values.where((unlocked) => unlocked).length;
+        break;
+      case 'count':
+        progress = _exercisesCompleted;
+        break;
+      case 'level':
+        progress = _level;
+        break;
+      case 'exercises':
+        // This is a special case handled differently
+        progress = 0; // Placeholder, handled in other methods
+        break;
+    }
+
+    return {
+      'completed': completed,
+      'progress': progress,
+      'target': target,
+    };
   }
 }
