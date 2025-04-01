@@ -488,10 +488,7 @@ class AppState extends ChangeNotifier {
       if (timeParts[1] == 'PM' && hour < 12) hour += 12;
       if (timeParts[1] == 'AM' && hour == 12) hour = 0;
 
-      // Instead of using zonedSchedule, we'll use a simpler approach initially
-      // For production, you would want to handle timezones properly
-
-      // Schedule the daily notification - using specific builder to avoid ambiguity
+      // Schedule the daily notification - using DefaultStyleInformation to avoid BigPictureStyle
       const AndroidNotificationDetails androidDetails =
           AndroidNotificationDetails(
         'breathing_reminder',
@@ -500,8 +497,8 @@ class AppState extends ChangeNotifier {
         importance: Importance.high,
         priority: Priority.high,
         enableVibration: true,
-        // Avoid using big picture style to prevent the ambiguity
-        styleInformation: BigTextStyleInformation(''),
+        styleInformation: DefaultStyleInformation(
+            true, true), // Use DefaultStyleInformation instead
       );
 
       const DarwinNotificationDetails iOSDetails = DarwinNotificationDetails(
@@ -515,7 +512,7 @@ class AppState extends ChangeNotifier {
         iOS: iOSDetails,
       );
 
-      // For now we'll just use a simple daily notification without exact time
+      // Use a simple daily notification
       await flutterLocalNotificationsPlugin.periodicallyShow(
         0,
         'Breathly Reminder',
@@ -525,7 +522,7 @@ class AppState extends ChangeNotifier {
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       );
 
-      debugPrint('Daily notification scheduled');
+      debugPrint('Daily notification scheduled for $hour:$minute');
     } catch (e) {
       debugPrint('Error scheduling notification: $e');
     }

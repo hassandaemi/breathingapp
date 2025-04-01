@@ -12,21 +12,50 @@ final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize notifications
-  final AndroidInitializationSettings initializationSettingsAndroid =
+  // Initialize notifications with minimal settings to avoid ambiguity
+  final AndroidInitializationSettings androidInitSettings =
       AndroidInitializationSettings('@mipmap/ic_launcher');
 
-  final DarwinInitializationSettings initializationSettingsIOS =
-      DarwinInitializationSettings();
+  final DarwinInitializationSettings iOSInitSettings =
+      DarwinInitializationSettings(
+    requestAlertPermission: true,
+    requestBadgePermission: true,
+    requestSoundPermission: true,
+  );
 
   final InitializationSettings initializationSettings = InitializationSettings(
-    android: initializationSettingsAndroid,
-    iOS: initializationSettingsIOS,
+    android: androidInitSettings,
+    iOS: iOSInitSettings,
   );
 
+  // Initialize plugin without callbacks to reduce ambiguity
   await flutterLocalNotificationsPlugin.initialize(
     initializationSettings,
+    onDidReceiveNotificationResponse: (NotificationResponse response) {
+      // Placeholder for notification tap handling
+      debugPrint('Notification clicked: ${response.payload}');
+    },
   );
+
+  // Request permission for iOS
+  if (Platform.isIOS) {
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin>()
+        ?.requestPermissions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+  }
+
+  // For Android 13+, request notification permissions
+  if (Platform.isAndroid) {
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestNotificationsPermission();
+  }
 
   runApp(const MyApp());
 }

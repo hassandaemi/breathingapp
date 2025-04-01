@@ -324,16 +324,46 @@ class SettingsScreen extends StatelessWidget {
       final formattedTime = _formatTimeOfDay(pickedTime);
       appState.setReminderTime(formattedTime);
 
-      // Schedule notification for this time
-      appState.scheduleNotification();
+      // Show a loading indicator while scheduling notification
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
 
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Daily reminder set for $formattedTime'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
+      try {
+        // Schedule notification for this time
+        await appState.scheduleNotification();
+
+        // Close loading dialog
+        if (context.mounted) Navigator.of(context).pop();
+
+        // Show success message
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Daily reminder set for $formattedTime'),
+              duration: const Duration(seconds: 2),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        // Close loading dialog
+        if (context.mounted) Navigator.of(context).pop();
+
+        // Show error message
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to set reminder: ${e.toString()}'),
+              duration: const Duration(seconds: 3),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
