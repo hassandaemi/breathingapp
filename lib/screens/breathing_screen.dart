@@ -33,16 +33,34 @@ class _BreathingScreenState extends State<BreathingScreen>
   int _currentPhaseIndex = -1;
   late List<String> _phaseOrder;
 
+  // Default pattern in case the technique's pattern is invalid
+  final Map<String, int> _defaultPattern = {
+    "inhale": 4,
+    "exhale": 4,
+  };
+  final int _defaultCycles = 5;
+
   String get _currentPhaseDisplayName {
     if (_currentPhaseKey == "get_ready") return "Get Ready";
     if (_isCompleted) return "Completed";
-    return _capitalize(_currentPhaseKey.replaceAll(RegExp(r'[0-9]+\$'), ''));
+
+    // Special handling for hold phases
+    if (_currentPhaseKey == "hold1") return "Hold";
+    if (_currentPhaseKey == "hold2") return "Hold";
+
+    return _capitalize(_currentPhaseKey.replaceAll(RegExp(r'[0-9]+$'), ''));
   }
 
   @override
   void initState() {
     super.initState();
-    _phaseOrder = widget.technique.pattern.keys.toList();
+
+    // Validate the technique's pattern
+    if (widget.technique.pattern.isEmpty) {
+      _phaseOrder = _defaultPattern.keys.toList();
+    } else {
+      _phaseOrder = widget.technique.pattern.keys.toList();
+    }
 
     _controller = AnimationController(
       vsync: this,
@@ -81,6 +99,8 @@ class _BreathingScreenState extends State<BreathingScreen>
           audioPath = 'assets/sounds/${appState.selectedSound}/inhale.mp3';
           break;
         case 'hold':
+        case 'hold1':
+        case 'hold2':
           audioPath = 'assets/sounds/${appState.selectedSound}/hold.mp3';
           break;
         case 'exhale':
@@ -121,7 +141,7 @@ class _BreathingScreenState extends State<BreathingScreen>
       _isPaused = false;
       _isCompleted = false;
       _currentPhaseKey = "get_ready";
-      _currentPhaseDuration = 3;
+      _currentPhaseDuration = 3; // 3 seconds get ready phase
       _currentCycle = 0;
       _currentPhaseIndex = -1;
       _controller.stop();
@@ -142,9 +162,11 @@ class _BreathingScreenState extends State<BreathingScreen>
       _isPaused = false;
 
       if (_currentPhaseIndex == -1) {
+        // We're at the "Get Ready" phase
         _controller.duration = const Duration(seconds: 3);
         _controller.forward();
       } else {
+        // We're resuming from a pause
         _controller.forward();
       }
     });
@@ -166,22 +188,28 @@ class _BreathingScreenState extends State<BreathingScreen>
     int nextCycle = _currentCycle;
 
     if (_currentPhaseKey == "get_ready" || initialStart) {
+      // After "Get Ready" phase, start first cycle, first phase
       nextCycle = 1;
       nextPhaseIndex = 0;
     } else {
+      // Move to next phase
       nextPhaseIndex++;
+
+      // If we've reached the end of phases for this cycle
       if (nextPhaseIndex >= _phaseOrder.length) {
-        nextCycle++;
-        if (nextCycle > widget.technique.cycles) {
+        nextCycle++; // Move to next cycle
+        nextPhaseIndex = 0; // Reset to first phase
+
+        // If we've completed all cycles
+        if (nextCycle > _getRequiredCycles()) {
           _completeExercise();
           return;
         }
-        nextPhaseIndex = 0;
       }
     }
 
     final newPhaseKey = _phaseOrder[nextPhaseIndex];
-    final newPhaseDuration = widget.technique.pattern[newPhaseKey]!;
+    final newPhaseDuration = _getPhaseTime(newPhaseKey);
 
     setState(() {
       _currentCycle = nextCycle;
@@ -192,12 +220,37 @@ class _BreathingScreenState extends State<BreathingScreen>
       _controller.reset();
     });
 
-    // Play sound for the new phase
-    _playPhaseSound(_currentPhaseKey.replaceAll(RegExp(r'[0-9]+\$'), ''));
+    // Play sound for the new phase (normalize the phase name to remove numbers)
+    String basePhaseKey = newPhaseKey.replaceAll(RegExp(r'[0-9]+$'), '');
+    _playPhaseSound(basePhaseKey);
 
     if (_isRunning && !_isPaused) {
       _controller.forward();
     }
+  }
+
+  // Helper method to get the correct phase duration, with fallback to default
+  int _getPhaseTime(String phaseKey) {
+    // Check the technique's pattern first
+    if (widget.technique.pattern.containsKey(phaseKey)) {
+      return widget.technique.pattern[phaseKey]!;
+    }
+
+    // Fallback to default pattern
+    final basePhaseKey = phaseKey.replaceAll(RegExp(r'[0-9]+$'), '');
+    if (_defaultPattern.containsKey(basePhaseKey)) {
+      return _defaultPattern[basePhaseKey]!;
+    }
+
+    // Ultimate fallback
+    return 4;
+  }
+
+  // Helper method to get the correct cycle count, with fallback to default
+  int _getRequiredCycles() {
+    return widget.technique.cycles > 0
+        ? widget.technique.cycles
+        : _defaultCycles;
   }
 
   String _capitalize(String s) {
@@ -391,7 +444,7 @@ class _BreathingScreenState extends State<BreathingScreen>
                   _isCompleted
                       ? 'Well Done!'
                       : _currentCycle > 0
-                          ? 'Cycle $_currentCycle of ${widget.technique.cycles}'
+                          ? 'Cycle $_currentCycle of ${_getRequiredCycles()}'
                           : (_isRunning ? 'Get Ready...' : ' '),
                   style: GoogleFonts.lato(
                       fontSize: 18,

@@ -10,6 +10,7 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final appState = Provider.of<AppState>(context);
     final userTitle = appState.getUserTitle();
+    final screenSize = MediaQuery.of(context).size;
 
     return Scaffold(
       body: Container(
@@ -21,17 +22,18 @@ class ProfileScreen extends StatelessWidget {
           ),
         ),
         child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildAppBar(context),
-              const SizedBox(height: 20),
-              _buildUserHeader(context, userTitle, appState),
-              const SizedBox(height: 30),
-              Expanded(
-                child: _buildUserStats(context, appState),
-              ),
-            ],
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildAppBar(context),
+                SizedBox(height: screenSize.height * 0.02),
+                _buildUserHeader(context, userTitle, appState),
+                SizedBox(height: screenSize.height * 0.03),
+                _buildUserStats(context, appState),
+              ],
+            ),
           ),
         ),
       ),
@@ -62,16 +64,19 @@ class ProfileScreen extends StatelessWidget {
 
   Widget _buildUserHeader(
       BuildContext context, String userTitle, AppState appState) {
+    final screenSize = MediaQuery.of(context).size;
+    final profileSize = screenSize.width * 0.2; // Responsive profile image size
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.symmetric(horizontal: screenSize.width * 0.06),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                width: 80,
-                height: 80,
+                width: profileSize,
+                height: profileSize,
                 decoration: BoxDecoration(
                   color: AppTheme.primaryColor.withAlpha((0.2 * 255).toInt()),
                   shape: BoxShape.circle,
@@ -82,24 +87,25 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 child: Icon(
                   Icons.person,
-                  size: 40,
+                  size: profileSize * 0.5,
                   color: AppTheme.primaryColor,
                 ),
               ),
-              const SizedBox(width: 20),
+              SizedBox(width: screenSize.width * 0.05),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       userTitle,
-                      style: const TextStyle(
-                        fontSize: 24,
+                      style: TextStyle(
+                        fontSize:
+                            22 * MediaQuery.textScalerOf(context).scale(1.0),
                         fontWeight: FontWeight.bold,
                         color: AppTheme.textColor,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: screenSize.height * 0.005),
                     Row(
                       children: [
                         const Icon(
@@ -136,9 +142,9 @@ class ProfileScreen extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: screenSize.height * 0.02),
           const Divider(thickness: 1),
-          const SizedBox(height: 10),
+          SizedBox(height: screenSize.height * 0.01),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -160,10 +166,12 @@ class ProfileScreen extends StatelessWidget {
 
   Widget _buildStatItem(
       BuildContext context, String value, String label, IconData icon) {
+    final screenSize = MediaQuery.of(context).size;
+
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.all(10),
+          padding: EdgeInsets.all(screenSize.width * 0.025),
           decoration: BoxDecoration(
             color: AppTheme.primaryColor.withAlpha((0.1 * 255).toInt()),
             shape: BoxShape.circle,
@@ -171,23 +179,23 @@ class ProfileScreen extends StatelessWidget {
           child: Icon(
             icon,
             color: AppTheme.primaryColor,
-            size: 24,
+            size: screenSize.width * 0.06,
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: screenSize.height * 0.008),
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontWeight: FontWeight.bold,
-            fontSize: 16,
+            fontSize: 16 * MediaQuery.textScalerOf(context).scale(1.0),
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: screenSize.height * 0.004),
         Text(
           label,
           style: TextStyle(
             color: Colors.grey[600],
-            fontSize: 12,
+            fontSize: 12 * MediaQuery.textScalerOf(context).scale(1.0),
           ),
         ),
       ],
@@ -195,9 +203,11 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Widget _buildUserStats(BuildContext context, AppState appState) {
+    final screenSize = MediaQuery.of(context).size;
+
     return Container(
-      padding: const EdgeInsets.all(24),
-      margin: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(screenSize.width * 0.06),
+      margin: EdgeInsets.all(screenSize.width * 0.04),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -219,23 +229,23 @@ class ProfileScreen extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: appState.completedChallenges.isEmpty
-                ? _buildEmptyChallengeState()
-                : ListView.builder(
-                    itemCount: appState.completedChallenges.length,
-                    itemBuilder: (context, index) {
-                      final challengeId = appState.completedChallenges[index];
-                      final challengeName =
-                          appState.challengeDescriptions[challengeId] ??
-                              'Unknown Challenge';
-                      return _buildChallengeItem(context, challengeName,
-                          _getChallengeIcon(challengeId), true);
-                    },
-                  ),
-          ),
-          const SizedBox(height: 20),
+          SizedBox(height: screenSize.height * 0.02),
+          appState.completedChallenges.isEmpty
+              ? _buildEmptyChallengeState(context)
+              : ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: appState.completedChallenges.length,
+                  itemBuilder: (context, index) {
+                    final challengeId = appState.completedChallenges[index];
+                    final challengeName =
+                        appState.challengeDescriptions[challengeId] ??
+                            'Unknown Challenge';
+                    return _buildChallengeItem(context, challengeName,
+                        _getChallengeIcon(challengeId), true);
+                  },
+                ),
+          SizedBox(height: screenSize.height * 0.02),
           const Text(
             'Challenge Progress',
             style: TextStyle(
@@ -243,12 +253,12 @@ class ProfileScreen extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: screenSize.height * 0.02),
           SizedBox(
-            height: 150,
+            height: screenSize.height * 0.18,
             child: _buildChallengeProgressList(context, appState),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: screenSize.height * 0.02),
           const Text(
             'How to Advance',
             style: TextStyle(
@@ -256,24 +266,26 @@ class ProfileScreen extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: screenSize.height * 0.02),
           _buildAdvancementTip(context, appState),
         ],
       ),
     );
   }
 
-  Widget _buildEmptyChallengeState() {
+  Widget _buildEmptyChallengeState(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
             Icons.emoji_events_outlined,
-            size: 48,
+            size: screenSize.width * 0.12,
             color: Colors.grey[400],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: screenSize.height * 0.02),
           Text(
             'No challenges completed yet',
             style: TextStyle(
@@ -281,7 +293,7 @@ class ProfileScreen extends StatelessWidget {
               fontSize: 16,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: screenSize.height * 0.008),
           Text(
             'Complete exercises consistently to earn challenges',
             textAlign: TextAlign.center,
@@ -290,6 +302,7 @@ class ProfileScreen extends StatelessWidget {
               fontSize: 14,
             ),
           ),
+          SizedBox(height: screenSize.height * 0.02),
         ],
       ),
     );
@@ -297,12 +310,14 @@ class ProfileScreen extends StatelessWidget {
 
   Widget _buildChallengeItem(
       BuildContext context, String name, IconData icon, bool completed) {
+    final screenSize = MediaQuery.of(context).size;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: EdgeInsets.symmetric(vertical: screenSize.height * 0.01),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: EdgeInsets.all(screenSize.width * 0.025),
             decoration: BoxDecoration(
               color: AppTheme.primaryColor.withAlpha((0.1 * 255).toInt()),
               borderRadius: BorderRadius.circular(10),
@@ -310,10 +325,10 @@ class ProfileScreen extends StatelessWidget {
             child: Icon(
               icon,
               color: AppTheme.primaryColor,
-              size: 24,
+              size: screenSize.width * 0.06,
             ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: screenSize.width * 0.04),
           Expanded(
             child: Text(
               name,
@@ -335,6 +350,8 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Widget _buildChallengeProgressList(BuildContext context, AppState appState) {
+    final screenSize = MediaQuery.of(context).size;
+
     // Get all challenge IDs that haven't been completed yet
     final incompleteChallenges = appState.challengeRequirements.keys
         .where((id) => !appState.completedChallenges.contains(id))
@@ -347,10 +364,10 @@ class ProfileScreen extends StatelessWidget {
           children: [
             Icon(
               Icons.emoji_events,
-              size: 36,
+              size: screenSize.width * 0.09,
               color: Colors.amber,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: screenSize.height * 0.012),
             Text(
               'All challenges completed!',
               style: TextStyle(
@@ -391,12 +408,13 @@ class ProfileScreen extends StatelessWidget {
     int progress,
     int target,
   ) {
+    final screenSize = MediaQuery.of(context).size;
     final double percentage =
         target > 0 ? (progress / target).clamp(0.0, 1.0) : 0.0;
 
     return Container(
-      width: 140,
-      margin: const EdgeInsets.only(right: 12),
+      width: screenSize.width * 0.35,
+      margin: EdgeInsets.only(right: screenSize.width * 0.03),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -410,12 +428,12 @@ class ProfileScreen extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
+        padding: EdgeInsets.all(screenSize.width * 0.03),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: EdgeInsets.all(screenSize.width * 0.02),
               decoration: BoxDecoration(
                 color: AppTheme.primaryColor.withAlpha((0.1 * 255).toInt()),
                 borderRadius: BorderRadius.circular(8),
@@ -423,10 +441,10 @@ class ProfileScreen extends StatelessWidget {
               child: Icon(
                 icon,
                 color: AppTheme.primaryColor,
-                size: 22,
+                size: screenSize.width * 0.055,
               ),
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: screenSize.height * 0.01),
             Text(
               name,
               style: const TextStyle(
@@ -437,7 +455,6 @@ class ProfileScreen extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
             const Spacer(),
-            const SizedBox(height: 4),
             Text(
               target > 0 ? '$progress/$target' : 'In Progress',
               style: TextStyle(
@@ -445,7 +462,7 @@ class ProfileScreen extends StatelessWidget {
                 color: Colors.grey[600],
               ),
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: screenSize.height * 0.006),
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: LinearProgressIndicator(
@@ -462,6 +479,7 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Widget _buildAdvancementTip(BuildContext context, AppState appState) {
+    final screenSize = MediaQuery.of(context).size;
     String nextTitle;
     String requirement;
 
@@ -498,22 +516,22 @@ class ProfileScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(screenSize.width * 0.04),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Next Title: $nextTitle',
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: 16,
+                fontSize: 16 * MediaQuery.textScalerOf(context).scale(1.0),
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: screenSize.height * 0.008),
             Text(
               requirement,
-              style: const TextStyle(
-                fontSize: 14,
+              style: TextStyle(
+                fontSize: 14 * MediaQuery.textScalerOf(context).scale(1.0),
               ),
             ),
           ],

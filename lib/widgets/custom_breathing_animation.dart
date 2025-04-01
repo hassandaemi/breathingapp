@@ -18,9 +18,10 @@ class CustomBreathingAnimation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Determine animation type based on technique
-    // Default to circle if not Box Breathing
-    bool useSquare = technique.name == "Box Breathing";
+    // Determine animation style based on the technique name and app preferences
+    // For now we're using a simple approach based on technique name
+    final bool useSquare = technique.name == "Box Breathing";
+    final bool useLinear = technique.name == "Alternate Nostril Breathing";
 
     return AnimatedBuilder(
       animation: controller,
@@ -28,24 +29,25 @@ class CustomBreathingAnimation extends StatelessWidget {
         double progress = controller.value; // 0.0 to 1.0
         Color progressColor = const Color(0xFF4682B4); // Default progress color
 
-        // Determine visual progress based on phase (e.g., holds stay static)
-        if (currentPhaseKey.contains('hold')) {
-          // Hold after inhale: stay expanded (progress 1.0)
-          // Hold after exhale (Box): stay contracted (progress 0.0)
-          if (currentPhaseKey == 'hold1' || currentPhaseKey == 'hold') {
-            // Assuming hold1 is after inhale
-            progress = 1.0;
-          } else if (currentPhaseKey == 'hold2') {
-            // Assuming hold2 is after exhale (Box)
-            progress = 0.0;
-          }
-        }
-        if (isCompleted) {
-          progress = 1.0; // Show completed state (full)
-          progressColor = Colors.green; // Change color on completion
-        }
+        // Determine visual progress based on phase
         if (currentPhaseKey == "get_ready") {
           progress = 0.0; // Start contracted
+        } else if (isCompleted) {
+          progress = 1.0; // Show completed state (full)
+          progressColor = Colors.green; // Change color on completion
+        } else if (currentPhaseKey == "inhale") {
+          // Inhale: grow from 0.0 to 1.0 (controller value)
+          progress = controller.value;
+        } else if (currentPhaseKey.contains("hold") ||
+            currentPhaseKey == "hold1") {
+          // Hold after inhale: stay expanded
+          progress = 1.0;
+        } else if (currentPhaseKey == "exhale") {
+          // Exhale: shrink from 1.0 to 0.0 (inverse of controller value)
+          progress = 1.0 - controller.value;
+        } else if (currentPhaseKey == "hold2") {
+          // Hold after exhale (used in Box Breathing): stay contracted
+          progress = 0.0;
         }
 
         return SizedBox(
@@ -57,10 +59,15 @@ class CustomBreathingAnimation extends StatelessWidget {
                     progress: progress,
                     color: progressColor,
                     isCompleted: isCompleted)
-                : CirclePainter(
-                    progress: progress,
-                    color: progressColor,
-                    isCompleted: isCompleted),
+                : (useLinear
+                    ? LinearBreathingPainter(
+                        progress: progress,
+                        color: progressColor,
+                        isCompleted: isCompleted)
+                    : CirclePainter(
+                        progress: progress,
+                        color: progressColor,
+                        isCompleted: isCompleted)),
           ),
         );
       },
@@ -81,7 +88,8 @@ class CirclePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final maxRadius = size.width / 2;
-    final minRadius = maxRadius * 0.6; // Example minimum size
+    final minRadius =
+        maxRadius * 0.5; // Smaller minimum size for better visual effect
     final currentRadius = minRadius + (maxRadius - minRadius) * progress;
 
     // Background (optional, can be handled by container)
@@ -123,7 +131,7 @@ class SquarePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final maxSize = size.width;
-    final minSize = maxSize * 0.6;
+    final minSize = maxSize * 0.5; // Smaller minimum for better visual effect
     final currentSize = minSize + (maxSize - minSize) * progress;
     final halfSize = currentSize / 2;
 
@@ -155,6 +163,60 @@ class SquarePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant SquarePainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.color != color ||
+        oldDelegate.isCompleted != isCompleted;
+  }
+}
+
+// --- Linear Painter --- (For Alternate Nostril Breathing)
+class LinearBreathingPainter extends CustomPainter {
+  final double progress; // 0.0 (contracted) to 1.0 (expanded)
+  final Color color;
+  final bool isCompleted;
+
+  LinearBreathingPainter(
+      {required this.progress, required this.color, required this.isCompleted});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final maxWidth = size.width * 0.9;
+    final minWidth = size.width * 0.2;
+    final height = size.height * 0.3;
+
+    // Calculate current width based on progress
+    final currentWidth = minWidth + (maxWidth - minWidth) * progress;
+
+    // Background (for reference)
+    final backgroundPaint = Paint()
+      ..color = AppTheme.primaryColor.withAlpha((0.1 * 255).toInt())
+      ..style = PaintingStyle.fill;
+    final bgRect =
+        Rect.fromCenter(center: center, width: maxWidth, height: height);
+    final bgRRect =
+        RRect.fromRectAndRadius(bgRect, Radius.circular(height / 2));
+    canvas.drawRRect(bgRRect, backgroundPaint);
+
+    // Animated bar
+    final barRect =
+        Rect.fromCenter(center: center, width: currentWidth, height: height);
+    final barRRect =
+        RRect.fromRectAndRadius(barRect, Radius.circular(height / 2));
+
+    final foregroundPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    canvas.drawRRect(barRRect, foregroundPaint);
+
+    // Checkmark on completion
+    if (isCompleted) {
+      _drawCheckmark(canvas, center, height * 0.8);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant LinearBreathingPainter oldDelegate) {
     return oldDelegate.progress != progress ||
         oldDelegate.color != color ||
         oldDelegate.isCompleted != isCompleted;

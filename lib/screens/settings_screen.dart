@@ -325,13 +325,15 @@ class SettingsScreen extends StatelessWidget {
       appState.setReminderTime(formattedTime);
 
       // Show a loading indicator while scheduling notification
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
 
       try {
         // Schedule notification for this time
