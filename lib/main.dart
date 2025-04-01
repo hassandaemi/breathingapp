@@ -13,17 +13,17 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize notifications with minimal settings to avoid ambiguity
-  final AndroidInitializationSettings androidInitSettings =
+  const AndroidInitializationSettings androidInitSettings =
       AndroidInitializationSettings('@mipmap/ic_launcher');
 
-  final DarwinInitializationSettings iOSInitSettings =
+  const DarwinInitializationSettings iOSInitSettings =
       DarwinInitializationSettings(
     requestAlertPermission: true,
     requestBadgePermission: true,
     requestSoundPermission: true,
   );
 
-  final InitializationSettings initializationSettings = InitializationSettings(
+  const InitializationSettings initializationSettings = InitializationSettings(
     android: androidInitSettings,
     iOS: iOSInitSettings,
   );
