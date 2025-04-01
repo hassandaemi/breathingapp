@@ -1,145 +1,156 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/exercise.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
-import '../widgets/breathing_animation.dart';
 import '../widgets/mood_dialog.dart';
 import 'profile_screen.dart';
 
 class BreathingScreen extends StatefulWidget {
-  final Exercise exercise;
+  final BreathingTechnique technique;
 
-  const BreathingScreen({super.key, required this.exercise});
+  const BreathingScreen({super.key, required this.technique});
 
   @override
   State<BreathingScreen> createState() => _BreathingScreenState();
 }
 
-class _BreathingScreenState extends State<BreathingScreen> {
+class _BreathingScreenState extends State<BreathingScreen>
+    with TickerProviderStateMixin {
+  late AnimationController _controller;
+  Timer? _holdTimer;
+
   bool _isRunning = false;
+  bool _isPaused = false;
   bool _isCompleted = false;
-  String _currentPhase = "Get Ready";
-  int _remainingSeconds = 0;
-  int _totalSeconds = 0;
+  String _currentPhaseName = "Get Ready";
+  int _currentPhaseDuration = 3;
   int _currentCycle = 0;
-  Timer? _timer;
+  int _currentPhaseIndex = -1;
+  late List<String> _phaseOrder;
 
   @override
   void initState() {
     super.initState();
-    _calculateTotalTime();
+    _phaseOrder = widget.technique.pattern.keys.toList();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: Duration(seconds: _currentPhaseDuration),
+    )..addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          _moveToNextPhase();
+        }
+      });
+
+    _prepareForStart();
   }
 
-  void _calculateTotalTime() {
-    int cycleTime = widget.exercise.inhaleTime +
-        widget.exercise.holdTime +
-        widget.exercise.exhaleTime;
-    _totalSeconds = cycleTime * widget.exercise.cycles;
-    _remainingSeconds = _totalSeconds;
+  void _prepareForStart() {
+    setState(() {
+      _isRunning = false;
+      _isPaused = false;
+      _isCompleted = false;
+      _currentPhaseName = "Get Ready";
+      _currentPhaseDuration = 3;
+      _currentCycle = 0;
+      _currentPhaseIndex = -1;
+      _controller.duration = Duration(seconds: _currentPhaseDuration);
+      _controller.reset();
+    });
   }
 
   void _startBreathing() {
-    if (_isRunning) return;
+    if (_isRunning && !_isPaused) return;
 
     setState(() {
+      if (_isCompleted) {
+        _prepareForStart();
+      }
+
       _isRunning = true;
-      if (_currentPhase == "Get Ready") {
-        _currentPhase = "inhale";
-        _currentCycle = 1;
+      _isPaused = false;
+      if (_currentPhaseIndex == -1) {
+        _moveToNextPhase(startCycle: true);
+      } else {
+        _controller.forward();
       }
-    });
-
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_remainingSeconds <= 0) {
-        _completeExercise();
-        return;
-      }
-
-      setState(() {
-        _remainingSeconds--;
-      });
-
-      _updateBreathingPhase();
     });
   }
 
   void _pauseBreathing() {
-    if (!_isRunning) return;
+    if (!_isRunning || _isPaused) return;
 
-    _timer?.cancel();
+    _controller.stop();
     setState(() {
-      _isRunning = false;
+      _isPaused = true;
     });
   }
 
-  void _updateBreathingPhase() {
-    int cycleTime = widget.exercise.inhaleTime +
-        widget.exercise.holdTime +
-        widget.exercise.exhaleTime;
+  void _moveToNextPhase({bool startCycle = false}) {
+    if (_isCompleted) return;
 
-    int currentTimeInCycle = _totalSeconds - _remainingSeconds;
-    currentTimeInCycle = currentTimeInCycle % cycleTime;
+    int nextPhaseIndex = _currentPhaseIndex + 1;
+    int nextCycle = _currentCycle;
 
-    // Calculate current cycle
-    _currentCycle =
-        ((_totalSeconds - _remainingSeconds) / cycleTime).floor() + 1;
-    if (_currentCycle > widget.exercise.cycles) {
-      _currentCycle = widget.exercise.cycles;
+    if (startCycle) {
+      nextCycle = 1;
+      nextPhaseIndex = 0;
+    } else if (nextPhaseIndex >= _phaseOrder.length) {
+      nextCycle++;
+      if (nextCycle > widget.technique.cycles) {
+        _completeExercise();
+        return;
+      }
+      nextPhaseIndex = 0;
     }
 
-    String newPhase;
-    if (currentTimeInCycle < widget.exercise.inhaleTime) {
-      newPhase = "inhale";
-    } else if (currentTimeInCycle <
-        widget.exercise.inhaleTime + widget.exercise.holdTime) {
-      newPhase = "hold";
-    } else {
-      newPhase = "exhale";
-    }
+    final newPhaseName = _phaseOrder[nextPhaseIndex];
+    final newPhaseDuration = widget.technique.pattern[newPhaseName]!;
 
-    if (newPhase != _currentPhase) {
-      setState(() {
-        _currentPhase = newPhase;
-      });
-    }
+    setState(() {
+      _currentCycle = nextCycle;
+      _currentPhaseIndex = nextPhaseIndex;
+      _currentPhaseName =
+          _capitalize(newPhaseName.replaceAll(RegExp(r'[0-9]$'), ''));
+      _currentPhaseDuration = newPhaseDuration;
+      _controller.duration = Duration(seconds: _currentPhaseDuration);
+      _controller.reset();
+    });
+    _controller.forward();
   }
+
+  String _capitalize(String s) => s[0].toUpperCase() + s.substring(1);
 
   void _completeExercise() {
-    _timer?.cancel();
+    if (!mounted) return;
+    _controller.stop();
 
-    // Get app state
     final appState = Provider.of<AppState>(context, listen: false);
-
-    // Add points for completing exercise
     appState.addPoints(10);
-
-    // Update daily streak
     appState.updateDailyStreak();
-
-    // Track that this exercise type was completed
-    appState.checkAllExercisesChallenge(widget.exercise.title);
+    appState.checkAllExercisesChallenge(widget.technique.name);
 
     setState(() {
       _isRunning = false;
+      _isPaused = false;
       _isCompleted = true;
-      _currentPhase = "Completed";
+      _currentPhaseName = "Completed";
+      _currentPhaseDuration = 0;
     });
 
-    // Show mood dialog after a slight delay
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
         showDialog(
           context: context,
-          barrierDismissible: true,
+          barrierDismissible: false,
           builder: (BuildContext context) {
             return MoodDialog(
               onCompleted: () {
                 if (mounted) {
-                  // Check if a new title was earned
-                  _checkForTitleUnlock(appState);
                   Navigator.pop(context);
+                  _checkForTitleUnlock(appState);
                 }
               },
             );
@@ -149,7 +160,6 @@ class _BreathingScreenState extends State<BreathingScreen> {
     });
   }
 
-  // Show congratulations dialog if a new title was earned
   void _checkForTitleUnlock(AppState appState) {
     if (appState.points >= 50 && appState.points < 60) {
       _showTitleUnlockDialog("Calm Seeker");
@@ -166,7 +176,6 @@ class _BreathingScreenState extends State<BreathingScreen> {
 
   void _showTitleUnlockDialog(String title) {
     if (!mounted) return;
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -202,30 +211,10 @@ class _BreathingScreenState extends State<BreathingScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context); // Close dialog
-              Navigator.push(
+              Navigator.pop(context);
+              Navigator.pushReplacement(
                 context,
-                PageRouteBuilder(
-                  pageBuilder: (context, animation, secondaryAnimation) =>
-                      const ProfileScreen(),
-                  transitionsBuilder:
-                      (context, animation, secondaryAnimation, child) {
-                    // Smooth 200ms transition
-                    const begin = Offset(1.0, 0.0);
-                    const end = Offset.zero;
-                    const curve = Curves.easeInOut;
-
-                    var tween = Tween(begin: begin, end: end)
-                        .chain(CurveTween(curve: curve));
-                    var offsetAnimation = animation.drive(tween);
-
-                    return SlideTransition(
-                      position: offsetAnimation,
-                      child: child,
-                    );
-                  },
-                  transitionDuration: const Duration(milliseconds: 200),
-                ),
+                MaterialPageRoute(builder: (context) => const ProfileScreen()),
               );
             },
             child: const Text('View Profile'),
@@ -243,205 +232,185 @@ class _BreathingScreenState extends State<BreathingScreen> {
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _controller.dispose();
+    _holdTimer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    int timeRemainingInPhase = _currentPhaseDuration;
+    if (_controller.isAnimating) {
+      timeRemainingInPhase =
+          (_controller.duration!.inSeconds * (1.0 - _controller.value)).ceil();
+    }
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        title: Text(
+          widget.technique.name,
+          style: GoogleFonts.lato(
+            color: AppTheme.primaryColor,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: AppTheme.primaryColor),
+          onPressed: () {
+            if (_isRunning && !_isCompleted) {
+              _pauseBreathing();
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Exit Exercise?'),
+                  content: const Text(
+                      'Are you sure you want to stop the breathing exercise?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.pop(context);
+                      },
+                      child: const Text('Exit',
+                          style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ),
+              );
+            } else {
+              Navigator.pop(context);
+            }
+          },
+        ),
+      ),
       body: Container(
+        width: double.infinity,
+        height: double.infinity,
         decoration: const BoxDecoration(
           gradient: AppTheme.mainGradient,
         ),
         child: SafeArea(
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildAppBar(),
-              const Spacer(),
-              _buildPhaseText(),
-              const SizedBox(height: 30),
-              _buildAnimation(),
-              const SizedBox(height: 30),
-              _buildTimer(),
-              const Spacer(),
-              _buildControlButton(),
-              const SizedBox(height: 40),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAppBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios),
-            onPressed: () => Navigator.pop(context),
-            color: AppTheme.primaryColor,
-          ),
-          Expanded(
-            child: Text(
-              widget.exercise.title,
-              style: AppTheme.titleStyle.copyWith(
-                fontSize: 24,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(width: 48), // Balance for the back button
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPhaseText() {
-    String displayPhase = _currentPhase;
-    if (displayPhase == "inhale") {
-      displayPhase = "Inhale";
-    } else if (displayPhase == "hold") {
-      displayPhase = "Hold";
-    } else if (displayPhase == "exhale") {
-      displayPhase = "Exhale";
-    }
-
-    return AnimatedOpacity(
-      opacity: _isCompleted ? 0.0 : 1.0,
-      duration: const Duration(milliseconds: 300),
-      child: Text(
-        displayPhase,
-        style: TextStyle(
-          fontSize: 30,
-          fontWeight: FontWeight.bold,
-          color: widget.exercise.color,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAnimation() {
-    // Adjust animation durations based on exercise type
-    Duration duration;
-    if (_currentPhase == "inhale") {
-      switch (widget.exercise.title) {
-        case "Calm":
-          duration = const Duration(seconds: 4);
-          break;
-        case "Sleep":
-          duration = const Duration(seconds: 4);
-          break;
-        case "Energy":
-          duration = const Duration(seconds: 2);
-          break;
-        default:
-          duration = Duration(seconds: widget.exercise.inhaleTime);
-      }
-    } else if (_currentPhase == "hold") {
-      duration = Duration(seconds: widget.exercise.holdTime);
-    } else if (_currentPhase == "exhale") {
-      switch (widget.exercise.title) {
-        case "Calm":
-          duration = const Duration(seconds: 4);
-          break;
-        case "Sleep":
-          duration = const Duration(seconds: 7);
-          break;
-        case "Energy":
-          duration = const Duration(seconds: 2);
-          break;
-        default:
-          duration = Duration(seconds: widget.exercise.exhaleTime);
-      }
-    } else {
-      duration = const Duration(seconds: 1);
-    }
-
-    return Center(
-      child: _currentPhase == "Get Ready" || _currentPhase == "Completed"
-          ? Container(
-              width: 200,
-              height: 200,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: widget.exercise.color.withAlpha((0.2 * 255).toInt()),
-                border: Border.all(
-                  color: widget.exercise.color.withAlpha((0.5 * 255).toInt()),
-                  width: 3,
+              Padding(
+                padding: const EdgeInsets.only(top: 20.0),
+                child: Text(
+                  _isCompleted
+                      ? 'Well Done!'
+                      : _currentCycle > 0
+                          ? 'Cycle $_currentCycle of ${widget.technique.cycles}'
+                          : ' ',
+                  style: GoogleFonts.lato(
+                      fontSize: 18,
+                      color:
+                          AppTheme.primaryColor.withAlpha((0.8 * 255).toInt()),
+                      fontWeight: FontWeight.w600),
                 ),
               ),
-              child: _isCompleted
-                  ? const Icon(
-                      Icons.check,
-                      size: 80,
-                      color: Colors.green,
-                    )
-                  : const Icon(
-                      Icons.play_arrow,
-                      size: 80,
-                      color: Colors.blue,
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 200,
+                      height: 200,
+                      child: AnimatedBuilder(
+                        animation: _controller,
+                        builder: (context, child) {
+                          return Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              SizedBox(
+                                width: 200,
+                                height: 200,
+                                child: CircularProgressIndicator(
+                                  value: 1.0,
+                                  strokeWidth: 8,
+                                  color: AppTheme.primaryColor
+                                      .withAlpha((0.2 * 255).toInt()),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 200,
+                                height: 200,
+                                child: CircularProgressIndicator(
+                                  value: _controller.value,
+                                  strokeWidth: 8,
+                                  valueColor:
+                                      const AlwaysStoppedAnimation<Color>(
+                                          Color(0xFF4682B4)),
+                                  strokeCap: StrokeCap.round,
+                                ),
+                              ),
+                              Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    _currentPhaseName,
+                                    style: GoogleFonts.lato(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFF4682B4),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    '${timeRemainingInPhase}s',
+                                    style: GoogleFonts.lato(
+                                      fontSize: 48,
+                                      fontWeight: FontWeight.w300,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          );
+                        },
+                      ),
                     ),
-            )
-          : BreathingAnimation(
-              phase: _currentPhase,
-              duration: duration,
-              minSize: 150,
-              maxSize: 250,
-            ),
-    );
-  }
-
-  Widget _buildTimer() {
-    final minutes = _remainingSeconds ~/ 60;
-    final seconds = _remainingSeconds % 60;
-
-    return Column(
-      children: [
-        Text(
-          '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}',
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 50.0),
+                child: ElevatedButton(
+                  onPressed: _isCompleted
+                      ? _prepareForStart
+                      : (_isRunning && !_isPaused
+                          ? _pauseBreathing
+                          : _startBreathing),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _isCompleted
+                        ? Colors.green
+                        : (_isRunning && !_isPaused
+                            ? Colors.orange
+                            : AppTheme.primaryColor),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 50, vertical: 15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30.0),
+                    ),
+                    textStyle: GoogleFonts.lato(
+                        fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  child: Text(_isCompleted
+                      ? 'Practice Again'
+                      : (_isRunning && !_isPaused
+                          ? 'Pause'
+                          : (_isPaused ? 'Resume' : 'Start'))),
+                ),
+              ),
+            ],
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          _isCompleted
-              ? 'Great job!'
-              : 'Cycle $_currentCycle/${widget.exercise.cycles}',
-          style: const TextStyle(
-            fontSize: 16,
-            color: Colors.grey,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildControlButton() {
-    return SizedBox(
-      width: 60, // Increased FAB size
-      height: 60, // Increased FAB size
-      child: FloatingActionButton(
-        onPressed: _isCompleted
-            ? () => Navigator.pop(context)
-            : _isRunning
-                ? _pauseBreathing
-                : _startBreathing,
-        backgroundColor: _isCompleted ? Colors.green : widget.exercise.color,
-        elevation: 8, // Add shadow for depth
-        child: Icon(
-          _isCompleted
-              ? Icons.check
-              : _isRunning
-                  ? Icons.pause
-                  : Icons.play_arrow,
-          size: 28, // Larger icon size
         ),
       ),
     );

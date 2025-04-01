@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/exercise.dart';
+import 'package:flutter_feather_icons/flutter_feather_icons.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
-import '../widgets/exercise_card.dart';
 import '../widgets/points_badge.dart';
-import 'breathing_screen.dart';
+import 'technique_detail_screen.dart';
 import 'settings_screen.dart';
 import 'profile_screen.dart';
 
@@ -14,25 +14,14 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appState = Provider.of<AppState>(context);
-
-    // Check if we've unlocked new animation styles
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (appState.isStyleUnlocked('Linear') &&
-          !appState.unlockedAnimations['Linear']!) {
-        _showUnlockDialog(context, 'Linear Animation Style',
-            'You\'ve unlocked the Linear animation style!');
-      } else if (appState.isStyleUnlocked('Square') &&
-          !appState.unlockedAnimations['Square']!) {
-        _showUnlockDialog(context, 'Square Animation Style',
-            'You\'ve unlocked the Square animation style!');
-      }
-    });
-
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
-          gradient: AppTheme.mainGradient,
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF87CEEB), Colors.white],
+          ),
         ),
         child: SafeArea(
           child: Column(
@@ -42,40 +31,26 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 20),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    Text(
-                      'Breathly',
-                      style: AppTheme.titleStyle,
-                    ),
-                    const Spacer(),
-                    _buildAnimationStyleDropdown(context, appState),
-                  ],
+                child: Text(
+                  'Choose Your Breathwork',
+                  style: GoogleFonts.lato(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF2F4F4F)),
                 ),
               ),
               const SizedBox(height: 8),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Text(
-                  'Take a moment to breathe',
-                  style: AppTheme.subtitleStyle,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  appState.getNextUnlockMessage(),
-                  style: const TextStyle(
-                    color: AppTheme.primaryColor,
-                    fontStyle: FontStyle.italic,
-                    fontSize: 14,
-                  ),
+                  'Select a technique to begin',
+                  style: GoogleFonts.lato(
+                      fontSize: 16, color: const Color(0xFF333333)),
                 ),
               ),
               const SizedBox(height: 20),
               Expanded(
-                child: _buildExercisesList(context),
+                child: _buildTechniqueGrid(context),
               ),
             ],
           ),
@@ -84,24 +59,8 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  void _showUnlockDialog(BuildContext context, String title, String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Great!'),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildAppBar(BuildContext context) {
-    final appState = Provider.of<AppState>(context);
+    final appState = Provider.of<AppState>(context, listen: false);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
@@ -110,11 +69,10 @@ class HomeScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              // Profile button
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: IconButton(
-                  icon: const Icon(Icons.person),
+                  icon: const Icon(FeatherIcons.user),
                   onPressed: () {
                     Navigator.push(
                       context,
@@ -123,21 +81,10 @@ class HomeScreen extends StatelessWidget {
                             const ProfileScreen(),
                         transitionsBuilder:
                             (context, animation, secondaryAnimation, child) {
-                          // Smooth 200ms transition
-                          const begin = Offset(1.0, 0.0);
-                          const end = Offset.zero;
-                          const curve = Curves.easeInOut;
-
-                          var tween = Tween(begin: begin, end: end)
-                              .chain(CurveTween(curve: curve));
-                          var offsetAnimation = animation.drive(tween);
-
-                          return SlideTransition(
-                            position: offsetAnimation,
-                            child: child,
-                          );
+                          return FadeTransition(
+                              opacity: animation, child: child);
                         },
-                        transitionDuration: const Duration(milliseconds: 200),
+                        transitionDuration: const Duration(milliseconds: 300),
                       ),
                     );
                   },
@@ -146,13 +93,11 @@ class HomeScreen extends StatelessWidget {
                   color: AppTheme.primaryColor,
                 ),
               ),
-              // Points display
               PointsBadge(points: appState.points),
             ],
           ),
-          // Settings button
           IconButton(
-            icon: const Icon(Icons.settings),
+            icon: const Icon(FeatherIcons.settings),
             onPressed: () {
               Navigator.push(
                 context,
@@ -169,87 +114,89 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAnimationStyleDropdown(BuildContext context, AppState appState) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: AppTheme.primaryColor,
-          width: 1.5,
-        ),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      child: DropdownButton<String>(
-        value: appState.animationStyle,
-        onChanged: (String? newValue) {
-          if (newValue != null && appState.isStyleUnlocked(newValue)) {
-            appState.setAnimationStyle(newValue);
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Earn more points to unlock $newValue style!'),
-                duration: const Duration(seconds: 2),
-              ),
-            );
-          }
-        },
-        items: [
-          DropdownMenuItem(
-            value: 'Circle',
-            child: const Text('Circle'),
-          ),
-          DropdownMenuItem(
-            value: 'Linear',
-            child: Row(
-              children: [
-                const Text('Linear'),
-                if (!appState.isStyleUnlocked('Linear'))
-                  const Padding(
-                    padding: EdgeInsets.only(left: 8),
-                    child: Icon(Icons.lock, size: 16),
-                  ),
-              ],
-            ),
-          ),
-          DropdownMenuItem(
-            value: 'Square',
-            child: Row(
-              children: [
-                const Text('Square'),
-                if (!appState.isStyleUnlocked('Square'))
-                  const Padding(
-                    padding: EdgeInsets.only(left: 8),
-                    child: Icon(Icons.lock, size: 16),
-                  ),
-              ],
-            ),
-          ),
-        ],
-        icon: const Icon(Icons.animation, size: 16),
-        underline: Container(height: 0),
-        isDense: true,
-      ),
-    );
-  }
+  Widget _buildTechniqueGrid(BuildContext context) {
+    final appState = Provider.of<AppState>(context);
+    final techniques = appState.breathingTechniques;
 
-  Widget _buildExercisesList(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.only(top: 10),
-      itemCount: ExercisesList.exercises.length,
+    IconData getIconData(String name) {
+      switch (name) {
+        case 'wind':
+          return FeatherIcons.wind;
+        case 'moon':
+          return FeatherIcons.moon;
+        case 'square':
+          return FeatherIcons.square;
+        case 'git-branch':
+          return FeatherIcons.gitBranch;
+        case 'sunrise':
+          return FeatherIcons.sunrise;
+        case 'headphones':
+          return FeatherIcons.headphones;
+        case 'zap':
+          return FeatherIcons.zap;
+        default:
+          return FeatherIcons.activity;
+      }
+    }
+
+    return GridView.builder(
+      padding: const EdgeInsets.all(16.0),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 16.0,
+        mainAxisSpacing: 16.0,
+        childAspectRatio: 1.0,
+      ),
+      itemCount: techniques.length,
       itemBuilder: (context, index) {
-        final exercise = ExercisesList.exercises[index];
-        return ExerciseCard(
-          exercise: exercise,
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => BreathingScreen(
-                  exercise: exercise,
+        final technique = techniques[index];
+        return Material(
+          color: technique.color,
+          elevation: 2.0,
+          borderRadius: BorderRadius.circular(12.0),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12.0),
+            onTap: () {
+              Navigator.push(
+                context,
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) =>
+                      TechniqueDetailScreen(technique: technique),
+                  transitionsBuilder:
+                      (context, animation, secondaryAnimation, child) {
+                    return FadeTransition(opacity: animation, child: child);
+                  },
+                  transitionDuration: const Duration(milliseconds: 400),
                 ),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Icon(
+                    getIconData(technique.iconName),
+                    size: 40.0,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    technique.name,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.lato(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
-            );
-          },
+            ),
+          ),
         );
       },
     );

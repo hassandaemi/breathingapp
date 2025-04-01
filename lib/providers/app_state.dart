@@ -1,6 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+// Define the BreathingTechnique class outside AppState
+class BreathingTechnique {
+  final String name;
+  final String description;
+  final List<String> benefits;
+  final List<String> instructions;
+  final Map<String, int> pattern; // e.g., {"inhale": 4, "hold": 7, "exhale": 8}
+  final int cycles; // number of repetitions
+  final String iconName; // For FeatherIcons or similar
+  final Color color; // Unique color for the button
+
+  const BreathingTechnique({
+    required this.name,
+    required this.description,
+    required this.benefits,
+    required this.instructions,
+    required this.pattern,
+    required this.cycles,
+    required this.iconName,
+    required this.color,
+  });
+}
+
 class AppState extends ChangeNotifier {
   int _points = 0;
   String _animationStyle = 'Circle'; // Default animation style
@@ -34,6 +57,149 @@ class AppState extends ChangeNotifier {
     'Square': false,
   };
 
+  // Add the list of breathing techniques
+  final List<BreathingTechnique> _breathingTechniques = [
+    const BreathingTechnique(
+      name: "Belly Breathing",
+      description:
+          "A simple technique focusing on deep breathing into the diaphragm to promote relaxation and oxygen flow.",
+      benefits: ["Reduces stress", "Lowers heart rate", "Improves focus"],
+      instructions: [
+        "Sit or lie down comfortably.",
+        "Place one hand on your chest and the other on your belly.",
+        "Inhale deeply through your nose for 4 seconds, feeling your belly rise.",
+        "Exhale slowly through your mouth for 6 seconds, feeling your belly fall.",
+      ],
+      pattern: {"inhale": 4, "exhale": 6},
+      cycles: 5,
+      iconName: "wind", // Example icon name
+      color: Color(0xFF4682B4), // Steel Blue
+    ),
+    const BreathingTechnique(
+      name: "4-7-8 Breathing",
+      description:
+          "A calming technique designed to reduce anxiety and help with sleep by regulating breath.",
+      benefits: ["Promotes relaxation", "Reduces anxiety", "Aids sleep"],
+      instructions: [
+        "Sit with your back straight.",
+        "Inhale quietly through your nose for 4 seconds.",
+        "Hold your breath for 7 seconds.",
+        "Exhale completely through your mouth for 8 seconds, making a whooshing sound.",
+      ],
+      pattern: {"inhale": 4, "hold": 7, "exhale": 8},
+      cycles: 4,
+      iconName: "moon", // Example icon name
+      color: Color(0xFF5F9EA0), // Cadet Blue
+    ),
+    const BreathingTechnique(
+      name: "Box Breathing",
+      description:
+          "A structured technique used by athletes and professionals to enhance concentration and calm the mind.",
+      benefits: ["Improves focus", "Reduces stress", "Balances emotions"],
+      instructions: [
+        "Sit upright and relax your shoulders.",
+        "Inhale through your nose for 4 seconds.",
+        "Hold your breath for 4 seconds.",
+        "Exhale through your mouth for 4 seconds.",
+        "Hold your breath again for 4 seconds.",
+      ],
+      pattern: {
+        "inhale": 4,
+        "hold1": 4,
+        "exhale": 4,
+        "hold2": 4
+      }, // Renamed holds for uniqueness
+      cycles: 6,
+      iconName: "square", // Example icon name
+      color: Color(0xFF3CB371), // Medium Sea Green
+    ),
+    const BreathingTechnique(
+      name: "Alternate Nostril Breathing",
+      description:
+          "A yogic practice that balances the left and right hemispheres of the brain through alternating nostril breathing.",
+      benefits: [
+        "Enhances mental clarity",
+        "Reduces stress",
+        "Balances energy"
+      ],
+      instructions: [
+        "Sit comfortably with a straight spine.",
+        "Close your right nostril with your thumb and inhale through your left nostril for 4 seconds.",
+        "Close your left nostril with your ring finger and hold for 4 seconds.",
+        "Release your right nostril and exhale for 6 seconds.",
+        "Repeat, alternating nostrils.",
+      ],
+      pattern: {
+        "inhale": 4,
+        "hold": 4,
+        "exhale": 6
+      }, // Note: UI needs to guide nostril switching
+      cycles: 5, // Per side
+      iconName: "git-branch", // Example icon name
+      color: Color(0xFF9370DB), // Medium Purple
+    ),
+    const BreathingTechnique(
+      name: "Pursed Lip Breathing",
+      description:
+          "A technique to slow down breathing and improve oxygen exchange, often used for lung conditions.",
+      benefits: [
+        "Improves breathing efficiency",
+        "Reduces shortness of breath",
+        "Calms the mind"
+      ],
+      instructions: [
+        "Sit or stand comfortably.",
+        "Inhale through your nose for 2 seconds.",
+        "Purse your lips (like whistling) and exhale slowly for 4 seconds.",
+      ],
+      pattern: {"inhale": 2, "exhale": 4},
+      cycles: 8,
+      iconName: "sunrise", // Example icon name
+      color: Color(0xFFFFA07A), // Light Salmon
+    ),
+    const BreathingTechnique(
+      name: "Bhramari Pranayama (Bee)",
+      description:
+          "A humming breath technique that soothes the nervous system with sound vibration.",
+      benefits: ["Relieves tension", "Reduces anger", "Improves sleep quality"],
+      instructions: [
+        "Sit in a quiet place with your eyes closed.",
+        "Inhale deeply through your nose for 4 seconds.",
+        'Close your ears with your thumbs and exhale for 6 seconds, making a humming "bee" sound.',
+      ],
+      pattern: {
+        "inhale": 4,
+        "exhale": 6
+      }, // Note: UI needs to remind user to hum
+      cycles: 7,
+      iconName: "headphones", // Example icon name
+      color: Color(0xFFCD853F), // Peru
+    ),
+    const BreathingTechnique(
+      name: "Kapal Bhati Pranayama",
+      description:
+          "An energizing technique involving forceful exhalations to cleanse the body and mind.",
+      benefits: [
+        "Boosts energy",
+        "Improves digestion",
+        "Enhances mental alertness"
+      ],
+      instructions: [
+        "Sit cross-legged with a straight spine.",
+        "Take a deep inhale through your nose for 2 seconds.",
+        "Exhale forcefully through your nose for 1 second by contracting your abdomen.",
+        "Let the inhale happen passively.",
+      ],
+      pattern: {
+        "inhale": 2,
+        "exhale": 1
+      }, // Note: Exhale is forceful, passive inhale
+      cycles: 20,
+      iconName: "zap", // Example icon name
+      color: Color(0xFFFF6347), // Tomato
+    ),
+  ];
+
   // Getter methods
   int get points => _points;
   int get level => _level;
@@ -45,6 +211,9 @@ class AppState extends ChangeNotifier {
   bool get notificationsEnabled => _notificationsEnabled;
   Map<String, int> get animationStyles => _animationStyles;
   Map<String, bool> get unlockedAnimations => _unlockedAnimations;
+
+  // Getter for breathing techniques
+  List<BreathingTechnique> get breathingTechniques => _breathingTechniques;
 
   // Constructor to load saved preferences
   AppState() {
