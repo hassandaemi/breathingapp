@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/mood_dialog.dart';
+import '../widgets/custom_breathing_animation.dart';
 import 'profile_screen.dart';
 
 class BreathingScreen extends StatefulWidget {
@@ -19,16 +20,21 @@ class BreathingScreen extends StatefulWidget {
 class _BreathingScreenState extends State<BreathingScreen>
     with TickerProviderStateMixin {
   late AnimationController _controller;
-  Timer? _holdTimer;
 
   bool _isRunning = false;
   bool _isPaused = false;
   bool _isCompleted = false;
-  String _currentPhaseName = "Get Ready";
+  String _currentPhaseKey = "get_ready";
   int _currentPhaseDuration = 3;
   int _currentCycle = 0;
   int _currentPhaseIndex = -1;
   late List<String> _phaseOrder;
+
+  String get _currentPhaseDisplayName {
+    if (_currentPhaseKey == "get_ready") return "Get Ready";
+    if (_isCompleted) return "Completed";
+    return _capitalize(_currentPhaseKey.replaceAll(RegExp(r'[0-9]+\$'), ''));
+  }
 
   @override
   void initState() {
@@ -37,10 +43,11 @@ class _BreathingScreenState extends State<BreathingScreen>
 
     _controller = AnimationController(
       vsync: this,
-      duration: Duration(seconds: _currentPhaseDuration),
     )..addStatusListener((status) {
         if (status == AnimationStatus.completed) {
-          _moveToNextPhase();
+          if (_isRunning && !_isPaused) {
+            _moveToNextPhase();
+          }
         }
       });
 
@@ -52,12 +59,13 @@ class _BreathingScreenState extends State<BreathingScreen>
       _isRunning = false;
       _isPaused = false;
       _isCompleted = false;
-      _currentPhaseName = "Get Ready";
+      _currentPhaseKey = "get_ready";
       _currentPhaseDuration = 3;
       _currentCycle = 0;
       _currentPhaseIndex = -1;
-      _controller.duration = Duration(seconds: _currentPhaseDuration);
+      _controller.stop();
       _controller.reset();
+      _controller.duration = Duration(seconds: _currentPhaseDuration);
     });
   }
 
@@ -71,8 +79,10 @@ class _BreathingScreenState extends State<BreathingScreen>
 
       _isRunning = true;
       _isPaused = false;
+
       if (_currentPhaseIndex == -1) {
-        _moveToNextPhase(startCycle: true);
+        _controller.duration = const Duration(seconds: 3);
+        _controller.forward();
       } else {
         _controller.forward();
       }
@@ -80,7 +90,7 @@ class _BreathingScreenState extends State<BreathingScreen>
   }
 
   void _pauseBreathing() {
-    if (!_isRunning || _isPaused) return;
+    if (!_isRunning || _isPaused || _isCompleted) return;
 
     _controller.stop();
     setState(() {
@@ -88,43 +98,51 @@ class _BreathingScreenState extends State<BreathingScreen>
     });
   }
 
-  void _moveToNextPhase({bool startCycle = false}) {
-    if (_isCompleted) return;
+  void _moveToNextPhase({bool initialStart = false}) {
+    if (_isCompleted || !_isRunning) return;
 
-    int nextPhaseIndex = _currentPhaseIndex + 1;
+    int nextPhaseIndex = _currentPhaseIndex;
     int nextCycle = _currentCycle;
 
-    if (startCycle) {
+    if (_currentPhaseKey == "get_ready" || initialStart) {
       nextCycle = 1;
       nextPhaseIndex = 0;
-    } else if (nextPhaseIndex >= _phaseOrder.length) {
-      nextCycle++;
-      if (nextCycle > widget.technique.cycles) {
-        _completeExercise();
-        return;
+    } else {
+      nextPhaseIndex++;
+      if (nextPhaseIndex >= _phaseOrder.length) {
+        nextCycle++;
+        if (nextCycle > widget.technique.cycles) {
+          _completeExercise();
+          return;
+        }
+        nextPhaseIndex = 0;
       }
-      nextPhaseIndex = 0;
     }
 
-    final newPhaseName = _phaseOrder[nextPhaseIndex];
-    final newPhaseDuration = widget.technique.pattern[newPhaseName]!;
+    final newPhaseKey = _phaseOrder[nextPhaseIndex];
+    final newPhaseDuration = widget.technique.pattern[newPhaseKey]!;
 
     setState(() {
       _currentCycle = nextCycle;
       _currentPhaseIndex = nextPhaseIndex;
-      _currentPhaseName =
-          _capitalize(newPhaseName.replaceAll(RegExp(r'[0-9]$'), ''));
+      _currentPhaseKey = newPhaseKey;
       _currentPhaseDuration = newPhaseDuration;
       _controller.duration = Duration(seconds: _currentPhaseDuration);
       _controller.reset();
     });
-    _controller.forward();
+
+    if (_isRunning && !_isPaused) {
+      _controller.forward();
+    }
   }
 
-  String _capitalize(String s) => s[0].toUpperCase() + s.substring(1);
+  String _capitalize(String s) {
+    if (s.isEmpty) return s;
+    return s[0].toUpperCase() + s.substring(1);
+  }
 
   void _completeExercise() {
-    if (!mounted) return;
+    if (!mounted || _isCompleted) return;
     _controller.stop();
 
     final appState = Provider.of<AppState>(context, listen: false);
@@ -136,7 +154,7 @@ class _BreathingScreenState extends State<BreathingScreen>
       _isRunning = false;
       _isPaused = false;
       _isCompleted = true;
-      _currentPhaseName = "Completed";
+      _currentPhaseKey = "completed";
       _currentPhaseDuration = 0;
     });
 
@@ -233,7 +251,6 @@ class _BreathingScreenState extends State<BreathingScreen>
   @override
   void dispose() {
     _controller.dispose();
-    _holdTimer?.cancel();
     super.dispose();
   }
 
@@ -243,7 +260,11 @@ class _BreathingScreenState extends State<BreathingScreen>
     if (_controller.isAnimating) {
       timeRemainingInPhase =
           (_controller.duration!.inSeconds * (1.0 - _controller.value)).ceil();
+    } else if (_isPaused || _currentPhaseKey == "get_ready") {
+      timeRemainingInPhase = _currentPhaseDuration;
     }
+
+    timeRemainingInPhase = timeRemainingInPhase < 0 ? 0 : timeRemainingInPhase;
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -267,10 +288,13 @@ class _BreathingScreenState extends State<BreathingScreen>
                 builder: (context) => AlertDialog(
                   title: const Text('Exit Exercise?'),
                   content: const Text(
-                      'Are you sure you want to stop the breathing exercise?'),
+                      'Are you sure you want to stop the breathing exercise? Progress will not be saved.'),
                   actions: [
                     TextButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _startBreathing();
+                      },
                       child: const Text('Cancel'),
                     ),
                     TextButton(
@@ -307,7 +331,7 @@ class _BreathingScreenState extends State<BreathingScreen>
                       ? 'Well Done!'
                       : _currentCycle > 0
                           ? 'Cycle $_currentCycle of ${widget.technique.cycles}'
-                          : ' ',
+                          : (_isRunning ? 'Get Ready...' : ' '),
                   style: GoogleFonts.lato(
                       fontSize: 18,
                       color:
@@ -319,62 +343,29 @@ class _BreathingScreenState extends State<BreathingScreen>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    SizedBox(
-                      width: 200,
-                      height: 200,
-                      child: AnimatedBuilder(
-                        animation: _controller,
-                        builder: (context, child) {
-                          return Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              SizedBox(
-                                width: 200,
-                                height: 200,
-                                child: CircularProgressIndicator(
-                                  value: 1.0,
-                                  strokeWidth: 8,
-                                  color: AppTheme.primaryColor
-                                      .withAlpha((0.2 * 255).toInt()),
-                                ),
-                              ),
-                              SizedBox(
-                                width: 200,
-                                height: 200,
-                                child: CircularProgressIndicator(
-                                  value: _controller.value,
-                                  strokeWidth: 8,
-                                  valueColor:
-                                      const AlwaysStoppedAnimation<Color>(
-                                          Color(0xFF4682B4)),
-                                  strokeCap: StrokeCap.round,
-                                ),
-                              ),
-                              Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    _currentPhaseName,
-                                    style: GoogleFonts.lato(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                      color: const Color(0xFF4682B4),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    '${timeRemainingInPhase}s',
-                                    style: GoogleFonts.lato(
-                                      fontSize: 48,
-                                      fontWeight: FontWeight.w300,
-                                      color: AppTheme.primaryColor,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          );
-                        },
+                    CustomBreathingAnimation(
+                      controller: _controller,
+                      technique: widget.technique,
+                      currentPhaseKey: _currentPhaseKey,
+                      isCompleted: _isCompleted,
+                    ),
+                    const SizedBox(height: 30),
+                    Text(
+                      _currentPhaseDisplayName,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.lato(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF4682B4),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      '${timeRemainingInPhase}s',
+                      style: GoogleFonts.lato(
+                        fontSize: 48,
+                        fontWeight: FontWeight.w300,
+                        color: AppTheme.primaryColor,
                       ),
                     ),
                   ],

@@ -325,8 +325,8 @@ class AppState extends ChangeNotifier {
     await prefs.setStringList(
         'completedExerciseTypes', completedExercises.toList());
 
-    // If all three exercise types have been completed, add the challenge
-    if (completedExercises.length >= 3 &&
+    // If all breathing techniques have been completed, add the challenge
+    if (completedExercises.length >= _breathingTechniques.length &&
         !_completedChallenges.contains('all_exercises')) {
       _completedChallenges.add('all_exercises');
       _saveToPrefs();
