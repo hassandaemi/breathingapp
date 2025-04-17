@@ -28,33 +28,36 @@ void main() async {
     iOS: iOSInitSettings,
   );
 
-  // Initialize plugin without callbacks to reduce ambiguity
-  await flutterLocalNotificationsPlugin.initialize(
-    initializationSettings,
-    onDidReceiveNotificationResponse: (NotificationResponse response) {
-      // Placeholder for notification tap handling
-      debugPrint('Notification clicked: ${response.payload}');
-    },
-  );
+  // Initialize notifications with error handling
+  try {
+    await flutterLocalNotificationsPlugin.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        debugPrint('Notification clicked: ${response.payload}');
+      },
+    );
+  } catch (e) {
+    debugPrint('Error initializing notifications: $e');
+  }
 
   // Request permission for iOS
   if (Platform.isIOS) {
-    await flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>()
-        ?.requestPermissions(
-          alert: true,
-          badge: true,
-          sound: true,
-        );
+    final iosPlugin =
+        flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin>();
+    if (iosPlugin != null) {
+      await iosPlugin.requestPermissions(alert: true, badge: true, sound: true);
+    }
   }
 
   // For Android 13+, request notification permissions
   if (Platform.isAndroid) {
-    await flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.requestNotificationsPermission();
+    final androidPlugin =
+        flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    if (androidPlugin != null) {
+      await androidPlugin.requestNotificationsPermission();
+    }
   }
 
   runApp(const MyApp());
