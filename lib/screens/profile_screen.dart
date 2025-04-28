@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_feather_icons/flutter_feather_icons.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
+import 'settings_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -42,22 +46,32 @@ class ProfileScreen extends StatelessWidget {
 
   Widget _buildAppBar(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(24),
-          onTap: () => Navigator.pop(context),
-          child: Ink(
-            child: const Padding(
-              padding: EdgeInsets.all(8.0),
-              child: Icon(
-                Icons.arrow_back_ios,
-                color: AppTheme.primaryColor,
-              ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Profile',
+            style: GoogleFonts.lato(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.primaryColor,
             ),
           ),
-        ),
+          IconButton(
+            icon: const Icon(FeatherIcons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
+            },
+            splashRadius: 24,
+            color: AppTheme.primaryColor,
+          ),
+        ],
       ),
     );
   }
@@ -205,71 +219,260 @@ class ProfileScreen extends StatelessWidget {
   Widget _buildUserStats(BuildContext context, AppState appState) {
     final screenSize = MediaQuery.of(context).size;
 
-    return Container(
-      padding: EdgeInsets.all(screenSize.width * 0.06),
-      margin: EdgeInsets.all(screenSize.width * 0.04),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(13),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+    return Column(
+      children: [
+        // Points and Challenges Section
+        Container(
+          padding: EdgeInsets.all(screenSize.width * 0.06),
+          margin: EdgeInsets.all(screenSize.width * 0.04),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Completed Challenges',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(height: screenSize.height * 0.02),
-          appState.completedChallenges.isEmpty
-              ? _buildEmptyChallengeState(context)
-              : ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: appState.completedChallenges.length,
-                  itemBuilder: (context, index) {
-                    final challengeId = appState.completedChallenges[index];
-                    final challengeName =
-                        appState.challengeDescriptions[challengeId] ??
-                            'Unknown Challenge';
-                    return _buildChallengeItem(context, challengeName,
-                        _getChallengeIcon(challengeId), true);
-                  },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Completed Challenges',
+                    style: GoogleFonts.lato(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF2F4F4F),
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${appState.completedChallenges.length}/${appState.challengeRequirements.length}',
+                      style: GoogleFonts.lato(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: screenSize.height * 0.02),
+              appState.completedChallenges.isEmpty
+                  ? _buildEmptyChallengeState(context)
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: appState.completedChallenges.length,
+                      itemBuilder: (context, index) {
+                        final challengeId = appState.completedChallenges[index];
+                        final challengeName =
+                            appState.challengeDescriptions[challengeId] ??
+                                'Unknown Challenge';
+                        return _buildChallengeItem(context, challengeName,
+                            _getChallengeIcon(challengeId), true);
+                      },
+                    ),
+              SizedBox(height: screenSize.height * 0.02),
+              Text(
+                'Challenge Progress',
+                style: GoogleFonts.lato(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF2F4F4F),
                 ),
-          SizedBox(height: screenSize.height * 0.02),
-          const Text(
-            'Challenge Progress',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+              ),
+              SizedBox(height: screenSize.height * 0.02),
+              SizedBox(
+                height: screenSize.height * 0.18,
+                child: _buildChallengeProgressList(context, appState),
+              ),
+              SizedBox(height: screenSize.height * 0.02),
+              Text(
+                'How to Advance',
+                style: GoogleFonts.lato(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF2F4F4F),
+                ),
+              ),
+              SizedBox(height: screenSize.height * 0.02),
+              _buildAdvancementTip(context, appState),
+            ],
+          ),
+        ),
+
+        // Mood History Section
+        Container(
+          padding: EdgeInsets.all(screenSize.width * 0.06),
+          margin: EdgeInsets.symmetric(horizontal: screenSize.width * 0.04),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Mood History',
+                    style: GoogleFonts.lato(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF2F4F4F),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(FeatherIcons.refreshCw, size: 18),
+                    onPressed: () {
+                      // Refresh mood data
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Refreshing mood data...'),
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    },
+                    splashRadius: 20,
+                    color: Colors.grey[600],
+                  ),
+                ],
+              ),
+              SizedBox(height: screenSize.height * 0.02),
+              _buildMoodHistory(context),
+            ],
+          ),
+        ),
+
+        SizedBox(height: screenSize.height * 0.04),
+      ],
+    );
+  }
+
+  Widget _buildMoodHistory(BuildContext context) {
+    // Mock mood data - in a real app, this would come from a database
+    final mockMoodData = [
+      {'mood': '😊', 'date': 'April 1, 2025', 'technique': 'Box Breathing'},
+      {'mood': '😌', 'date': 'March 30, 2025', 'technique': 'Belly Breathing'},
+      {'mood': '😔', 'date': 'March 28, 2025', 'technique': '4-7-8 Breathing'},
+      {'mood': '😊', 'date': 'March 27, 2025', 'technique': 'Box Breathing'},
+      {
+        'mood': '😌',
+        'date': 'March 25, 2025',
+        'technique': 'Alternate Nostril'
+      },
+    ];
+
+    return Column(
+      children: [
+        // Mood summary row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildMoodSummaryItem('😊', '8', 'Happy'),
+            _buildMoodSummaryItem('😌', '12', 'Relaxed'),
+            _buildMoodSummaryItem('😔', '3', 'Sad'),
+          ],
+        ),
+        const SizedBox(height: 20),
+
+        // Mood history list
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: mockMoodData.length,
+          itemBuilder: (context, index) {
+            final item = mockMoodData[index];
+            return ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Text(
+                item['mood'] as String,
+                style: const TextStyle(fontSize: 24),
+              ),
+              title: Text(
+                item['technique'] as String,
+                style: GoogleFonts.lato(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
+              subtitle: Text(
+                item['date'] as String,
+                style: GoogleFonts.lato(
+                  color: Colors.grey[600],
+                  fontSize: 14,
+                ),
+              ),
+              dense: true,
+            );
+          },
+        ),
+
+        // See all button
+        TextButton(
+          onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Full mood history coming soon!'),
+              ),
+            );
+          },
+          child: Text(
+            'See All Mood Records',
+            style: GoogleFonts.lato(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.primaryColor,
             ),
           ),
-          SizedBox(height: screenSize.height * 0.02),
-          SizedBox(
-            height: screenSize.height * 0.18,
-            child: _buildChallengeProgressList(context, appState),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMoodSummaryItem(String emoji, String count, String label) {
+    return Column(
+      children: [
+        Text(
+          emoji,
+          style: const TextStyle(fontSize: 28),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          count,
+          style: GoogleFonts.lato(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
           ),
-          SizedBox(height: screenSize.height * 0.02),
-          const Text(
-            'How to Advance',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+        ),
+        Text(
+          label,
+          style: GoogleFonts.lato(
+            color: Colors.grey[600],
+            fontSize: 12,
           ),
-          SizedBox(height: screenSize.height * 0.02),
-          _buildAdvancementTip(context, appState),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

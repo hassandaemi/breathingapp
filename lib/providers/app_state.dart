@@ -50,6 +50,8 @@ class AppState extends ChangeNotifier {
     'exercises_10': '10 Exercises Completed',
     'exercises_50': '50 Exercises Completed',
     'level_2': 'Level 2 Achieved',
+    'daily_challenge': 'Daily Deep Breathing',
+    'weekly_challenge': 'Weekly Relaxation',
   };
 
   // Challenge requirements and tracking info
@@ -64,7 +66,23 @@ class AppState extends ChangeNotifier {
     'exercises_10': {'type': 'count', 'target': 10},
     'exercises_50': {'type': 'count', 'target': 50},
     'level_2': {'type': 'level', 'target': 2},
+    'daily_challenge': {
+      'type': 'daily',
+      'target': 1,
+      'description': 'Complete one deep breathing exercise today'
+    },
+    'weekly_challenge': {
+      'type': 'weekly',
+      'target': 5,
+      'description': 'Complete 5 breathing exercises this week'
+    },
   };
+
+  // Track daily and weekly challenge progress
+  int _dailyChallengeProgress = 0;
+  int _weeklyChallengeProgress = 0;
+  String _dailyChallengeDate = '';
+  String _weeklyChallengeStartDate = '';
 
   // Available animation styles and their point thresholds
   final Map<String, int> _animationStyles = {
@@ -240,6 +258,8 @@ class AppState extends ChangeNotifier {
   bool get soundEnabled => _soundEnabled;
   String get selectedSound => _selectedSound;
   String? get reminderTime => _reminderTime;
+  int get dailyChallengeProgress => _dailyChallengeProgress;
+  int get weeklyChallengeProgress => _weeklyChallengeProgress;
 
   // Getter for breathing techniques
   List<BreathingTechnique> get breathingTechniques => _breathingTechniques;
@@ -286,8 +306,58 @@ class AppState extends ChangeNotifier {
     // Check level-based challenges
     _checkLevelChallenges();
 
+    // Update daily and weekly challenges
+    _updateDailyChallenge();
+    _updateWeeklyChallenge();
+
     _saveToPrefs();
     notifyListeners();
+  }
+
+  // Update daily challenge progress
+  void _updateDailyChallenge() {
+    final today = DateTime.now().toIso8601String().split('T')[0]; // YYYY-MM-DD
+
+    // Reset progress if it's a new day
+    if (_dailyChallengeDate != today) {
+      _dailyChallengeProgress = 0;
+      _dailyChallengeDate = today;
+    }
+
+    // Increment progress
+    _dailyChallengeProgress++;
+
+    // Check if daily challenge is completed
+    if (_dailyChallengeProgress >= 1 &&
+        !_completedChallenges.contains('daily_challenge')) {
+      _completedChallenges.add('daily_challenge');
+    }
+  }
+
+  // Update weekly challenge progress
+  void _updateWeeklyChallenge() {
+    final now = DateTime.now();
+
+    // Get the start of the current week (Monday)
+    final currentWeekStart = now
+        .subtract(Duration(days: now.weekday - 1))
+        .toIso8601String()
+        .split('T')[0];
+
+    // Reset progress if it's a new week
+    if (_weeklyChallengeStartDate != currentWeekStart) {
+      _weeklyChallengeProgress = 0;
+      _weeklyChallengeStartDate = currentWeekStart;
+    }
+
+    // Increment progress
+    _weeklyChallengeProgress++;
+
+    // Check if weekly challenge is completed
+    if (_weeklyChallengeProgress >= 5 &&
+        !_completedChallenges.contains('weekly_challenge')) {
+      _completedChallenges.add('weekly_challenge');
+    }
   }
 
   // Update level based on points (1 level per 100 points)
@@ -543,6 +613,13 @@ class AppState extends ChangeNotifier {
     _selectedSound = prefs.getString('selectedSound') ?? 'nature';
     _reminderTime = prefs.getString('reminderTime');
 
+    // Load challenge progress
+    _dailyChallengeProgress = prefs.getInt('dailyChallengeProgress') ?? 0;
+    _weeklyChallengeProgress = prefs.getInt('weeklyChallengeProgress') ?? 0;
+    _dailyChallengeDate = prefs.getString('dailyChallengeDate') ?? '';
+    _weeklyChallengeStartDate =
+        prefs.getString('weeklyChallengeStartDate') ?? '';
+
     // Load unlocked animation styles
     _unlockedAnimations['Linear'] = prefs.getBool('unlockedLinear') ?? false;
     _unlockedAnimations['Square'] = prefs.getBool('unlockedSquare') ?? false;
@@ -554,6 +631,9 @@ class AppState extends ChangeNotifier {
 
     // Make sure level is in sync with points
     _updateLevel();
+
+    // Check if we need to reset daily/weekly challenges
+    _checkChallengeResets();
 
     notifyListeners();
   }
@@ -575,9 +655,46 @@ class AppState extends ChangeNotifier {
       await prefs.setString('reminderTime', _reminderTime!);
     }
 
+    // Save challenge progress
+    await prefs.setInt('dailyChallengeProgress', _dailyChallengeProgress);
+    await prefs.setInt('weeklyChallengeProgress', _weeklyChallengeProgress);
+    await prefs.setString('dailyChallengeDate', _dailyChallengeDate);
+    await prefs.setString(
+        'weeklyChallengeStartDate', _weeklyChallengeStartDate);
+
     // Save unlocked animation styles
     await prefs.setBool('unlockedLinear', _unlockedAnimations['Linear']!);
     await prefs.setBool('unlockedSquare', _unlockedAnimations['Square']!);
+  }
+
+  // Check if we need to reset daily/weekly challenges
+  void _checkChallengeResets() {
+    final now = DateTime.now();
+    final today = now.toIso8601String().split('T')[0]; // YYYY-MM-DD
+
+    // Reset daily challenge if it's a new day
+    if (_dailyChallengeDate != today) {
+      _dailyChallengeProgress = 0;
+      _dailyChallengeDate = today;
+
+      // Remove daily challenge from completed challenges to allow it to be completed again
+      _completedChallenges.remove('daily_challenge');
+    }
+
+    // Get the start of the current week (Monday)
+    final currentWeekStart = now
+        .subtract(Duration(days: now.weekday - 1))
+        .toIso8601String()
+        .split('T')[0];
+
+    // Reset weekly challenge if it's a new week
+    if (_weeklyChallengeStartDate != currentWeekStart) {
+      _weeklyChallengeProgress = 0;
+      _weeklyChallengeStartDate = currentWeekStart;
+
+      // Remove weekly challenge from completed challenges to allow it to be completed again
+      _completedChallenges.remove('weekly_challenge');
+    }
   }
 
   // Helper method to check challenge progress
@@ -590,6 +707,7 @@ class AppState extends ChangeNotifier {
     final bool completed = _completedChallenges.contains(challengeId);
     int progress = 0;
     int target = requirement['target'] as int;
+    String description = requirement['description'] as String? ?? '';
 
     switch (requirement['type']) {
       case 'streak':
@@ -605,6 +723,14 @@ class AppState extends ChangeNotifier {
       case 'level':
         progress = _level;
         break;
+      case 'daily':
+        progress = _dailyChallengeProgress;
+        description = 'Complete one breathing exercise today';
+        break;
+      case 'weekly':
+        progress = _weeklyChallengeProgress;
+        description = 'Complete 5 breathing exercises this week';
+        break;
       case 'exercises':
         // This is a special case handled differently
         progress = 0; // Placeholder, handled in other methods
@@ -615,6 +741,7 @@ class AppState extends ChangeNotifier {
       'completed': completed,
       'progress': progress,
       'target': target,
+      'description': description,
     };
   }
 }
