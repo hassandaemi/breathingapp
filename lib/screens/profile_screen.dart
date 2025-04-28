@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_feather_icons/flutter_feather_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
 import 'settings_screen.dart';
@@ -18,6 +17,8 @@ class ProfileScreen extends StatelessWidget {
 
     return Scaffold(
       body: Container(
+        width: screenSize.width,
+        height: screenSize.height,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -26,19 +27,26 @@ class ProfileScreen extends StatelessWidget {
           ),
         ),
         child: SafeArea(
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildAppBar(context),
-                SizedBox(height: screenSize.height * 0.02),
-                _buildUserHeader(context, userTitle, appState),
-                SizedBox(height: screenSize.height * 0.03),
-                _buildUserStats(context, appState),
-              ],
-            ),
-          ),
+          child: LayoutBuilder(builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildAppBar(context),
+                    SizedBox(height: screenSize.height * 0.02),
+                    _buildUserHeader(context, userTitle, appState),
+                    SizedBox(height: screenSize.height * 0.03),
+                    _buildUserStats(context, appState),
+                  ],
+                ),
+              ),
+            );
+          }),
         ),
       ),
     );
@@ -230,7 +238,7 @@ class ProfileScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withAlpha(13), // 0.05 * 255 ≈ 13
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -254,7 +262,8 @@ class ProfileScreen extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      color:
+                          AppTheme.primaryColor.withAlpha(26), // 0.1 * 255 ≈ 26
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -271,18 +280,19 @@ class ProfileScreen extends StatelessWidget {
               SizedBox(height: screenSize.height * 0.02),
               appState.completedChallenges.isEmpty
                   ? _buildEmptyChallengeState(context)
-                  : ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: appState.completedChallenges.length,
-                      itemBuilder: (context, index) {
-                        final challengeId = appState.completedChallenges[index];
-                        final challengeName =
-                            appState.challengeDescriptions[challengeId] ??
-                                'Unknown Challenge';
-                        return _buildChallengeItem(context, challengeName,
-                            _getChallengeIcon(challengeId), true);
-                      },
+                  : Column(
+                      children: List.generate(
+                        appState.completedChallenges.length,
+                        (index) {
+                          final challengeId =
+                              appState.completedChallenges[index];
+                          final challengeName =
+                              appState.challengeDescriptions[challengeId] ??
+                                  'Unknown Challenge';
+                          return _buildChallengeItem(context, challengeName,
+                              _getChallengeIcon(challengeId), true);
+                        },
+                      ),
                     ),
               SizedBox(height: screenSize.height * 0.02),
               Text(
@@ -322,7 +332,7 @@ class ProfileScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withAlpha(13), // 0.05 * 255 ≈ 13
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -397,11 +407,8 @@ class ProfileScreen extends StatelessWidget {
         const SizedBox(height: 20),
 
         // Mood history list
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: mockMoodData.length,
-          itemBuilder: (context, index) {
+        Column(
+          children: List.generate(mockMoodData.length, (index) {
             final item = mockMoodData[index];
             return ListTile(
               contentPadding: EdgeInsets.zero,
@@ -425,7 +432,7 @@ class ProfileScreen extends StatelessWidget {
               ),
               dense: true,
             );
-          },
+          }),
         ),
 
         // See all button

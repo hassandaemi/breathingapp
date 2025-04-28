@@ -7,15 +7,19 @@ import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/points_badge.dart';
 import 'technique_detail_screen.dart';
-import 'settings_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Get the screen size to ensure proper layout
+    final screenSize = MediaQuery.of(context).size;
+
     return Scaffold(
       body: Container(
+        width: screenSize.width,
+        height: screenSize.height,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -24,22 +28,29 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
         child: SafeArea(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildAppBar(context),
-                const SizedBox(height: 20),
-                _buildWelcomeSection(context),
-                const SizedBox(height: 20),
-                _buildPopularTechniques(context),
-                const SizedBox(height: 30),
-                _buildRecentHistory(context),
-                const SizedBox(height: 20),
-              ],
-            ),
-          ),
+          child: LayoutBuilder(builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildAppBar(context),
+                    const SizedBox(height: 20),
+                    _buildWelcomeSection(context),
+                    const SizedBox(height: 20),
+                    _buildPopularTechniques(context),
+                    const SizedBox(height: 30),
+                    _buildRecentHistory(context),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            );
+          }),
         ),
       ),
     );
@@ -77,7 +88,7 @@ class HomeScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Welcome, ${userTitle}',
+            'Welcome, $userTitle',
             style: GoogleFonts.lato(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -426,12 +437,9 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: mockHistory.length,
-          itemBuilder: (context, index) {
+        // Use a Column instead of ListView for better initial rendering
+        Column(
+          children: List.generate(mockHistory.length, (index) {
             final item = mockHistory[index];
             return _buildHistoryItem(
               context,
@@ -440,7 +448,7 @@ class HomeScreen extends StatelessWidget {
               item['color'] as Color,
               item['icon'] as String,
             );
-          },
+          }),
         ),
       ],
     );
@@ -484,7 +492,7 @@ class HomeScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(13), // 0.05 * 255 ≈ 13
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -494,7 +502,7 @@ class HomeScreen extends StatelessWidget {
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.2),
+            color: color.withAlpha(51), // 0.2 * 255 ≈ 51
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(

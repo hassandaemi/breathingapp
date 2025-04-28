@@ -10,8 +10,13 @@ class ChallengesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Get the screen size to ensure proper layout
+    final screenSize = MediaQuery.of(context).size;
+
     return Scaffold(
       body: Container(
+        width: screenSize.width,
+        height: screenSize.height,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -75,7 +80,7 @@ class ChallengesScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.1),
+              color: AppTheme.primaryColor.withAlpha(26), // 0.1 * 255 ≈ 26
               borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
@@ -104,10 +109,10 @@ class ChallengesScreen extends StatelessWidget {
 
   Widget _buildChallengesList(BuildContext context) {
     final appState = Provider.of<AppState>(context);
-    
+
     // Get all challenge IDs
     final allChallenges = appState.challengeRequirements.keys.toList();
-    
+
     // If there are no challenges
     if (allChallenges.isEmpty) {
       return _buildEmptyChallengeState();
@@ -118,12 +123,13 @@ class ChallengesScreen extends StatelessWidget {
       itemCount: allChallenges.length,
       itemBuilder: (context, index) {
         final challengeId = allChallenges[index];
-        final challengeName = appState.challengeDescriptions[challengeId] ?? 'Unknown Challenge';
+        final challengeName =
+            appState.challengeDescriptions[challengeId] ?? 'Unknown Challenge';
         final progress = appState.getChallengeProgress(challengeId);
         final isCompleted = progress['completed'] as bool;
         final currentProgress = progress['progress'] as int;
         final target = progress['target'] as int;
-        
+
         return _buildChallengeCard(
           context,
           challengeName,
@@ -179,8 +185,9 @@ class ChallengesScreen extends StatelessWidget {
     int target,
     bool isCompleted,
   ) {
-    final double percentage = target > 0 ? (progress / target).clamp(0.0, 1.0) : 0.0;
-    
+    final double percentage =
+        target > 0 ? (progress / target).clamp(0.0, 1.0) : 0.0;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -188,7 +195,7 @@ class ChallengesScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(13), // 0.05 * 255 ≈ 13
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -205,8 +212,8 @@ class ChallengesScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: isCompleted
-                        ? Colors.green.withOpacity(0.2)
-                        : AppTheme.primaryColor.withOpacity(0.1),
+                        ? Colors.green.withAlpha(51) // 0.2 * 255 ≈ 51
+                        : AppTheme.primaryColor.withAlpha(26), // 0.1 * 255 ≈ 26
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -242,7 +249,7 @@ class ChallengesScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.1),
+                      color: Colors.green.withAlpha(26), // 0.1 * 255 ≈ 26
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -261,7 +268,8 @@ class ChallengesScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                     child: LinearProgressIndicator(
                       value: percentage,
-                      backgroundColor: Colors.grey.withOpacity(0.1),
+                      backgroundColor:
+                          Colors.grey.withAlpha(26), // 0.1 * 255 ≈ 26
                       minHeight: 8,
                       color: isCompleted ? Colors.green : AppTheme.primaryColor,
                     ),

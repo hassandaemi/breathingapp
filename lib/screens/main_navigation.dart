@@ -3,7 +3,6 @@ import 'package:flutter_feather_icons/flutter_feather_icons.dart';
 import 'home_screen.dart';
 import 'challenges_screen.dart';
 import 'profile_screen.dart';
-import '../theme/app_theme.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -12,7 +11,8 @@ class MainNavigation extends StatefulWidget {
   State<MainNavigation> createState() => _MainNavigationState();
 }
 
-class _MainNavigationState extends State<MainNavigation> with SingleTickerProviderStateMixin {
+class _MainNavigationState extends State<MainNavigation>
+    with SingleTickerProviderStateMixin {
   int _currentIndex = 0;
   late AnimationController _animationController;
   late List<Widget> _screens;
@@ -24,12 +24,15 @@ class _MainNavigationState extends State<MainNavigation> with SingleTickerProvid
       vsync: this,
       duration: const Duration(milliseconds: 200),
     );
-    
+
     _screens = [
       const HomeScreen(),
       const ChallengesScreen(),
       const ProfileScreen(),
     ];
+
+    // Start the animation immediately when the app loads
+    _animationController.forward();
   }
 
   @override
@@ -40,7 +43,7 @@ class _MainNavigationState extends State<MainNavigation> with SingleTickerProvid
 
   void _onTabTapped(int index) {
     if (_currentIndex == index) return;
-    
+
     _animationController.forward(from: 0.0);
     setState(() {
       _currentIndex = index;
