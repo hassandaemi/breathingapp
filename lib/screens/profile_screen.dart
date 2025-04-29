@@ -42,6 +42,8 @@ class ProfileScreen extends StatelessWidget {
                     _buildUserHeader(context, userTitle, appState),
                     SizedBox(height: screenSize.height * 0.03),
                     _buildUserStats(context, appState),
+                    SizedBox(height: screenSize.height * 0.03),
+                    _buildNotificationSection(context, appState),
                   ],
                 ),
               ),
@@ -769,5 +771,234 @@ class ProfileScreen extends StatelessWidget {
       default:
         return Icons.emoji_events;
     }
+  }
+
+  Widget _buildNotificationSection(BuildContext context, AppState appState) {
+    final screenSize = MediaQuery.of(context).size;
+
+    return Container(
+      padding: EdgeInsets.all(screenSize.width * 0.06),
+      margin: EdgeInsets.symmetric(horizontal: screenSize.width * 0.04),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(13),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Notifications',
+                style: GoogleFonts.lato(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF2F4F4F),
+                ),
+              ),
+              Switch(
+                value: appState.notificationsEnabled,
+                onChanged: (value) {
+                  appState.toggleNotifications();
+                  if (value && appState.reminderTime == null) {
+                    _showNotificationTimePicker(context, appState);
+                  }
+                },
+                activeColor: AppTheme.primaryColor,
+              ),
+            ],
+          ),
+          SizedBox(height: screenSize.height * 0.02),
+          if (appState.notificationsEnabled)
+            _buildReminderTimeSetting(context, appState),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReminderTimeSetting(BuildContext context, AppState appState) {
+    return InkWell(
+      onTap: () => _showNotificationTimePicker(context, appState),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withAlpha((0.1 * 255).toInt()),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.access_time,
+                color: AppTheme.primaryColor,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 15),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Daily Reminder',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  appState.reminderTime ?? 'Not set - tap to set time',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+            const Spacer(),
+            const Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: Colors.grey,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showNotificationTimePicker(
+      BuildContext context, AppState appState) async {
+    final TimeOfDay? pickedTime = await showTimePicker(
+      context: context,
+      initialTime: _parseTimeOfDay(appState.reminderTime) ?? TimeOfDay.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppTheme.primaryColor,
+              onPrimary: Colors.white,
+              onSurface: AppTheme.textColor,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (pickedTime != null && context.mounted) {
+      final formattedTime = _formatTimeOfDay(pickedTime);
+      appState.setReminderTime(formattedTime);
+
+      // Show a loading indicator while scheduling notification
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      try {
+        // Schedule notification for this time
+        await appState.scheduleNotification();
+
+        // Close loading dialog
+        if (context.mounted) Navigator.of(context).pop();
+
+        // Show success message
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Daily reminder set for $formattedTime'),
+              duration: const Duration(seconds: 2),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        // Close loading dialog
+        if (context.mounted) Navigator.of(context).pop();
+
+        String errorMessage = 'Failed to set reminder';
+
+        // Handle specific error cases
+        if (e.toString().contains('exact_alarms_not_permitted')) {
+          errorMessage =
+              'Reminders may not be exact due to system restrictions. They will still work, but timing may vary slightly.';
+
+          // Still show partial success message since we're using inexact alarms as fallback
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(errorMessage),
+                duration: const Duration(seconds: 4),
+                backgroundColor: Colors.orange,
+                action: SnackBarAction(
+                  label: 'Settings',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    // Navigate to the settings screen
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const SettingsScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            );
+          }
+        } else {
+          // Show error message for other errors
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('$errorMessage: ${e.toString()}'),
+                duration: const Duration(seconds: 3),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      }
+    }
+  }
+
+  TimeOfDay? _parseTimeOfDay(String? timeString) {
+    if (timeString == null) return null;
+
+    // Parse time like "8:00 PM"
+    final parts = timeString.split(' ');
+    if (parts.length != 2) return null;
+
+    final timeParts = parts[0].split(':');
+    if (timeParts.length != 2) return null;
+
+    int hour = int.tryParse(timeParts[0]) ?? 0;
+    final int minute = int.tryParse(timeParts[1]) ?? 0;
+
+    if (parts[1] == 'PM' && hour < 12) hour += 12;
+    if (parts[1] == 'AM' && hour == 12) hour = 0;
+
+    return TimeOfDay(hour: hour, minute: minute);
+  }
+
+  String _formatTimeOfDay(TimeOfDay time) {
+    final hour = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
+    final minute = time.minute.toString().padLeft(2, '0');
+    final period = time.period == DayPeriod.am ? 'AM' : 'PM';
+    return '$hour:$minute $period';
   }
 }

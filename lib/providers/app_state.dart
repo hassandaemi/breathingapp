@@ -582,19 +582,44 @@ class AppState extends ChangeNotifier {
         iOS: iOSDetails,
       );
 
-      // Use a simple daily notification
-      await flutterLocalNotificationsPlugin.periodicallyShow(
-        0,
-        'Breathly Reminder',
-        'Take a moment to breathe and relax',
-        RepeatInterval.daily,
-        platformDetails,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      );
+      try {
+        // First try with exact timing
+        await flutterLocalNotificationsPlugin.periodicallyShow(
+          0,
+          'Breathly Reminder',
+          'Take a moment to breathe and relax',
+          RepeatInterval.daily,
+          platformDetails,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        );
 
-      debugPrint('Daily notification scheduled for $hour:$minute');
+        debugPrint(
+            'Daily notification scheduled for $hour:$minute with exact timing');
+      } catch (exactAlarmError) {
+        // If exact alarm fails, fall back to inexact timing
+        if (exactAlarmError.toString().contains('exact_alarms_not_permitted')) {
+          debugPrint(
+              'Exact alarms not permitted, falling back to inexact timing');
+
+          await flutterLocalNotificationsPlugin.periodicallyShow(
+            0,
+            'Breathly Reminder',
+            'Take a moment to breathe and relax',
+            RepeatInterval.daily,
+            platformDetails,
+            androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          );
+
+          debugPrint(
+              'Daily notification scheduled for $hour:$minute with inexact timing');
+        } else {
+          // Re-throw if it's a different error
+          rethrow;
+        }
+      }
     } catch (e) {
       debugPrint('Error scheduling notification: $e');
+      rethrow; // Rethrow to let UI handle the error
     }
   }
 
