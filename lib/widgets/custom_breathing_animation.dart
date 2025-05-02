@@ -29,22 +29,24 @@ class CustomBreathingAnimation extends StatelessWidget {
         double progress = controller.value; // 0.0 to 1.0
         Color progressColor = const Color(0xFF4682B4); // Default progress color
 
-        // Determine visual progress based on phase
+        // Determine visual progress based on phase with improved curves
         if (currentPhaseKey == "get_ready") {
           progress = 0.0; // Start contracted
         } else if (isCompleted) {
           progress = 1.0; // Show completed state (full)
           progressColor = Colors.green; // Change color on completion
         } else if (currentPhaseKey == "inhale") {
-          // Inhale: grow from 0.0 to 1.0 (controller value)
-          progress = controller.value;
+          // Inhale: grow from 0.0 to 1.0 with ease-in curve for natural breathing
+          final curve = Curves.easeIn;
+          progress = curve.transform(controller.value);
         } else if (currentPhaseKey.contains("hold") ||
             currentPhaseKey == "hold1") {
           // Hold after inhale: stay expanded
           progress = 1.0;
         } else if (currentPhaseKey == "exhale") {
-          // Exhale: shrink from 1.0 to 0.0 (inverse of controller value)
-          progress = 1.0 - controller.value;
+          // Exhale: shrink from 1.0 to 0.0 with ease-out curve for natural breathing
+          final curve = Curves.easeOut;
+          progress = 1.0 - curve.transform(controller.value);
         } else if (currentPhaseKey == "hold2") {
           // Hold after exhale (used in Box Breathing): stay contracted
           progress = 0.0;

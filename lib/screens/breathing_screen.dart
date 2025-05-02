@@ -21,6 +21,8 @@ class BreathingScreen extends StatefulWidget {
 class _BreathingScreenState extends State<BreathingScreen>
     with TickerProviderStateMixin {
   late AnimationController _controller;
+  late AnimationController
+      _pulseController; // For phase transition pulse effect
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isAudioInitialized = false;
 
@@ -32,6 +34,7 @@ class _BreathingScreenState extends State<BreathingScreen>
   int _currentCycle = 0;
   int _currentPhaseIndex = -1;
   late List<String> _phaseOrder;
+  bool _showPulse = false; // Control visibility of pulse animation
 
   // Default pattern in case the technique's pattern is invalid
   final Map<String, int> _defaultPattern = {
@@ -64,11 +67,36 @@ class _BreathingScreenState extends State<BreathingScreen>
 
     _controller = AnimationController(
       vsync: this,
+      // Add duration here, will be updated in _prepareForStart
+      duration: const Duration(seconds: 3),
     )..addStatusListener((status) {
         if (status == AnimationStatus.completed) {
           if (_isRunning && !_isPaused) {
             _moveToNextPhase();
           }
+        }
+      });
+
+    // Add listener for smoother UI updates during animation
+    _controller.addListener(() {
+      // Only update UI when mounted and running
+      if (mounted && _isRunning && !_isPaused) {
+        setState(() {
+          // This empty setState forces the UI to rebuild with current animation value
+        });
+      }
+    });
+
+    // Initialize pulse animation controller for phase transitions
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    )..addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          setState(() {
+            _showPulse = false;
+          });
+          _pulseController.reset();
         }
       });
 
@@ -131,6 +159,7 @@ class _BreathingScreenState extends State<BreathingScreen>
   @override
   void dispose() {
     _controller.dispose();
+    _pulseController.dispose();
     _audioPlayer.dispose();
     super.dispose();
   }
@@ -164,9 +193,10 @@ class _BreathingScreenState extends State<BreathingScreen>
       if (_currentPhaseIndex == -1) {
         // We're at the "Get Ready" phase
         _controller.duration = const Duration(seconds: 3);
-        _controller.forward();
+        // Use a gentle ease-in curve for the get ready phase
+        _controller.forward(from: 0.0);
       } else {
-        // We're resuming from a pause
+        // We're resuming from a pause - continue from current position
         _controller.forward();
       }
     });
@@ -224,8 +254,28 @@ class _BreathingScreenState extends State<BreathingScreen>
     String basePhaseKey = newPhaseKey.replaceAll(RegExp(r'[0-9]+$'), '');
     _playPhaseSound(basePhaseKey);
 
+    // Show pulse animation for phase transition
+    setState(() {
+      _showPulse = true;
+    });
+    _pulseController.forward(from: 0.0);
+
     if (_isRunning && !_isPaused) {
-      _controller.forward();
+      // Apply different animation curves based on the breathing phase
+      // This makes the animations feel more natural
+      if (newPhaseKey == "inhale") {
+        // Inhale should start slow and accelerate (ease-in)
+        _controller.forward(from: 0.0);
+      } else if (newPhaseKey == "exhale") {
+        // Exhale should start fast and decelerate (ease-out)
+        _controller.forward(from: 0.0);
+      } else if (newPhaseKey.contains("hold")) {
+        // Hold phases should be linear
+        _controller.forward(from: 0.0);
+      } else {
+        // Default behavior
+        _controller.forward(from: 0.0);
+      }
     }
   }
 
@@ -287,7 +337,8 @@ class _BreathingScreenState extends State<BreathingScreen>
             return MoodDialog(
               onCompleted: () {
                 if (mounted) {
-                  Navigator.pop(context);
+                  // Don't pop the breathing screen, just check for title unlock
+                  // This allows the user to stay on this screen and practice again
                   _checkForTitleUnlock(appState);
                 }
               },
@@ -357,6 +408,14 @@ class _BreathingScreenState extends State<BreathingScreen>
             },
             child: const Text('View Profile'),
           ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Reset the exercise to allow practicing again
+              _prepareForStart();
+            },
+            child: const Text('Practice Again'),
+          ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
@@ -370,14 +429,16 @@ class _BreathingScreenState extends State<BreathingScreen>
 
   @override
   Widget build(BuildContext context) {
-    int timeRemainingInPhase = _currentPhaseDuration;
+    // Calculate time remaining with decimal precision for smoother display
+    double timeRemainingInPhase = _currentPhaseDuration.toDouble();
     if (_controller.isAnimating) {
       timeRemainingInPhase =
-          (_controller.duration!.inSeconds * (1.0 - _controller.value)).ceil();
+          _controller.duration!.inSeconds * (1.0 - _controller.value);
     } else if (_isPaused || _currentPhaseKey == "get_ready") {
-      timeRemainingInPhase = _currentPhaseDuration;
+      timeRemainingInPhase = _currentPhaseDuration.toDouble();
     }
 
+    // Ensure time doesn't go negative
     timeRemainingInPhase = timeRemainingInPhase < 0 ? 0 : timeRemainingInPhase;
 
     return Scaffold(
@@ -457,11 +518,35 @@ class _BreathingScreenState extends State<BreathingScreen>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    CustomBreathingAnimation(
-                      controller: _controller,
-                      technique: widget.technique,
-                      currentPhaseKey: _currentPhaseKey,
-                      isCompleted: _isCompleted,
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Pulse animation for phase transitions
+                        if (_showPulse)
+                          AnimatedBuilder(
+                            animation: _pulseController,
+                            builder: (context, child) {
+                              return Container(
+                                width: 270,
+                                height: 270,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: AppTheme.primaryColor.withAlpha(
+                                    ((1.0 - _pulseController.value) * 0.3 * 255)
+                                        .toInt(),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        // Main breathing animation
+                        CustomBreathingAnimation(
+                          controller: _controller,
+                          technique: widget.technique,
+                          currentPhaseKey: _currentPhaseKey,
+                          isCompleted: _isCompleted,
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 30),
                     Text(
@@ -474,13 +559,50 @@ class _BreathingScreenState extends State<BreathingScreen>
                       ),
                     ),
                     const SizedBox(height: 10),
-                    Text(
-                      '${timeRemainingInPhase}s',
-                      style: GoogleFonts.lato(
-                        fontSize: 48,
-                        fontWeight: FontWeight.w300,
-                        color: AppTheme.primaryColor,
-                      ),
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        SizedBox(
+                          width: 120,
+                          height: 120,
+                          child: CircularProgressIndicator(
+                            value:
+                                _controller.isAnimating ? _controller.value : 0,
+                            strokeWidth: 8.0,
+                            backgroundColor: AppTheme.primaryColor
+                                .withAlpha((0.2 * 255).toInt()),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              _isCompleted
+                                  ? Colors.green
+                                  : const Color(0xFF4682B4),
+                            ),
+                          ),
+                        ),
+                        Column(
+                          children: [
+                            Text(
+                              // Format to show one decimal place for smoother countdown
+                              '${timeRemainingInPhase.toStringAsFixed(1)}s',
+                              style: GoogleFonts.lato(
+                                fontSize: 48,
+                                fontWeight: FontWeight.w300,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                            Text(
+                              _currentPhaseKey == "get_ready"
+                                  ? "Starting soon..."
+                                  : (_isCompleted ? "Completed!" : ""),
+                              style: GoogleFonts.lato(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w300,
+                                color: AppTheme.primaryColor
+                                    .withAlpha((0.7 * 255).toInt()),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ],
                 ),

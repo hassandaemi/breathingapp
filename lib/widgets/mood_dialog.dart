@@ -66,6 +66,7 @@ class MoodDialog extends StatelessWidget {
               const SizedBox(height: 24),
               TextButton(
                 onPressed: () {
+                  // Close dialog but stay on the breathing screen
                   Navigator.of(context).pop();
                   onCompleted();
                 },
@@ -89,7 +90,7 @@ class MoodDialog extends StatelessWidget {
       onTap: () async {
         // Save mood to database
         await DatabaseHelper.instance.saveMood(mood);
-        // Close dialog
+        // Close dialog but stay on the breathing screen
         if (context.mounted) {
           Navigator.of(context).pop();
           onCompleted();
