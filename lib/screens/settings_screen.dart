@@ -91,66 +91,6 @@ class SettingsScreen extends StatelessWidget {
                 ),
               if (appState.notificationsEnabled) const SizedBox(height: 15),
               _buildSettingsCard(
-                title: 'Animation Style',
-                description: 'Change the breathing animation type',
-                icon: Icons.animation,
-                trailing: DropdownButton<String>(
-                  value: appState.animationStyle,
-                  onChanged: (String? newValue) {
-                    if (newValue != null &&
-                        appState.isStyleUnlocked(newValue)) {
-                      appState.setAnimationStyle(newValue);
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                              'Earn more points to unlock $newValue style!'),
-                          duration: const Duration(seconds: 2),
-                        ),
-                      );
-                    }
-                  },
-                  items: [
-                    const DropdownMenuItem(
-                      value: 'Circle',
-                      child: Text('Circle'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'Linear',
-                      enabled: appState.isStyleUnlocked('Linear'),
-                      child: Row(
-                        children: [
-                          const Text('Linear'),
-                          if (!appState.isStyleUnlocked('Linear'))
-                            const Padding(
-                              padding: EdgeInsets.only(left: 8),
-                              child: Icon(Icons.lock, size: 16),
-                            ),
-                        ],
-                      ),
-                    ),
-                    DropdownMenuItem(
-                      value: 'Square',
-                      enabled: appState.isStyleUnlocked('Square'),
-                      child: Row(
-                        children: [
-                          const Text('Square'),
-                          if (!appState.isStyleUnlocked('Square'))
-                            const Padding(
-                              padding: EdgeInsets.only(left: 8),
-                              child: Icon(Icons.lock, size: 16),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  underline: Container(
-                    height: 0,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 15),
-              _buildSettingsCard(
                 title: 'Sound',
                 description: 'Choose breathing exercise sounds',
                 icon: Icons.music_note,

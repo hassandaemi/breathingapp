@@ -28,7 +28,6 @@ class BreathingTechnique {
 
 class AppState extends ChangeNotifier {
   int _points = 0;
-  String _animationStyle = 'Circle'; // Default animation style
   bool _notificationsEnabled = true;
   int _level = 0; // Current user level
   int _dailyStreak = 0; // Track consecutive days
@@ -45,7 +44,6 @@ class AppState extends ChangeNotifier {
   final Map<String, String> _challengeDescriptions = {
     'streak_7': '7-Day Streak',
     'streak_30': '30-Day Streak',
-    'all_styles': 'Animation Master',
     'all_exercises': 'Exercise Explorer',
     'exercises_10': '10 Exercises Completed',
     'exercises_50': '50 Exercises Completed',
@@ -58,7 +56,6 @@ class AppState extends ChangeNotifier {
   final Map<String, Map<String, dynamic>> _challengeRequirements = {
     'streak_7': {'type': 'streak', 'target': 7},
     'streak_30': {'type': 'streak', 'target': 30},
-    'all_styles': {'type': 'styles', 'target': 3},
     'all_exercises': {
       'type': 'exercises',
       'target': -1
@@ -83,20 +80,6 @@ class AppState extends ChangeNotifier {
   int _weeklyChallengeProgress = 0;
   String _dailyChallengeDate = '';
   String _weeklyChallengeStartDate = '';
-
-  // Available animation styles and their point thresholds
-  final Map<String, int> _animationStyles = {
-    'Circle': 0,
-    'Linear': 50,
-    'Square': 100,
-  };
-
-  // Track unlocked animations
-  final Map<String, bool> _unlockedAnimations = {
-    'Circle': true, // Always unlocked
-    'Linear': false,
-    'Square': false,
-  };
 
   // Add the list of breathing techniques
   final List<BreathingTechnique> _breathingTechniques = [
@@ -248,10 +231,7 @@ class AppState extends ChangeNotifier {
   String get lastExerciseDate => _lastExerciseDate;
   List<String> get completedChallenges => _completedChallenges;
   Map<String, String> get challengeDescriptions => _challengeDescriptions;
-  String get animationStyle => _animationStyle;
   bool get notificationsEnabled => _notificationsEnabled;
-  Map<String, int> get animationStyles => _animationStyles;
-  Map<String, bool> get unlockedAnimations => _unlockedAnimations;
   int get exercisesCompleted => _exercisesCompleted;
   Map<String, Map<String, dynamic>> get challengeRequirements =>
       _challengeRequirements;
@@ -271,7 +251,6 @@ class AppState extends ChangeNotifier {
 
   // Add points when exercise is completed
   void addPoints(int value) {
-    int previousPoints = _points;
     _points += value;
 
     // Increment completed exercises count
@@ -279,26 +258,6 @@ class AppState extends ChangeNotifier {
 
     // Update level when points change
     _updateLevel();
-
-    // Check if we crossed the Linear threshold
-    if (previousPoints < 50 &&
-        _points >= 50 &&
-        !_unlockedAnimations['Linear']!) {
-      _unlockedAnimations['Linear'] = true;
-
-      // Check if all styles are unlocked for animation master challenge
-      _checkAnimationMasterChallenge();
-    }
-
-    // Check if we crossed the Square threshold
-    if (previousPoints < 100 &&
-        _points >= 100 &&
-        !_unlockedAnimations['Square']!) {
-      _unlockedAnimations['Square'] = true;
-
-      // Check if all styles are unlocked for animation master challenge
-      _checkAnimationMasterChallenge();
-    }
 
     // Check exercise count challenges
     _checkExerciseCountChallenges();
@@ -472,42 +431,6 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  // Check if all animation styles have been unlocked
-  void _checkAnimationMasterChallenge() {
-    if (_unlockedAnimations['Circle']! &&
-        _unlockedAnimations['Linear']! &&
-        _unlockedAnimations['Square']! &&
-        !_completedChallenges.contains('all_styles')) {
-      _completedChallenges.add('all_styles');
-    }
-  }
-
-  // Check if a style is available based on points
-  bool isStyleUnlocked(String style) {
-    return _unlockedAnimations[style] ?? false;
-  }
-
-  // Get message about next unlock
-  String getNextUnlockMessage() {
-    if (!_unlockedAnimations['Linear']!) {
-      return 'Earn ${50 - _points} more points to unlock Linear style';
-    } else if (!_unlockedAnimations['Square']!) {
-      return 'Earn ${100 - _points} more points to unlock Square style';
-    } else {
-      return 'All animation styles unlocked!';
-    }
-  }
-
-  // Set animation style
-  void setAnimationStyle(String style) {
-    // Only allow setting style if it's unlocked
-    if (_unlockedAnimations[style] ?? false) {
-      _animationStyle = style;
-      _saveToPrefs();
-      notifyListeners();
-    }
-  }
-
   // Toggle notifications
   void toggleNotifications() {
     _notificationsEnabled = !_notificationsEnabled;
@@ -627,7 +550,6 @@ class AppState extends ChangeNotifier {
   Future<void> _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     _points = prefs.getInt('points') ?? 0;
-    _animationStyle = prefs.getString('animationStyle') ?? 'Circle';
     _notificationsEnabled = prefs.getBool('notificationsEnabled') ?? true;
     _level = prefs.getInt('level') ?? 0;
     _dailyStreak = prefs.getInt('dailyStreak') ?? 0;
@@ -645,15 +567,6 @@ class AppState extends ChangeNotifier {
     _weeklyChallengeStartDate =
         prefs.getString('weeklyChallengeStartDate') ?? '';
 
-    // Load unlocked animation styles
-    _unlockedAnimations['Linear'] = prefs.getBool('unlockedLinear') ?? false;
-    _unlockedAnimations['Square'] = prefs.getBool('unlockedSquare') ?? false;
-
-    // Ensure we have a valid animation style (in case of previously saved invalid value)
-    if (!_unlockedAnimations[_animationStyle]!) {
-      _animationStyle = 'Circle';
-    }
-
     // Make sure level is in sync with points
     _updateLevel();
 
@@ -667,7 +580,6 @@ class AppState extends ChangeNotifier {
   Future<void> _saveToPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('points', _points);
-    await prefs.setString('animationStyle', _animationStyle);
     await prefs.setBool('notificationsEnabled', _notificationsEnabled);
     await prefs.setInt('level', _level);
     await prefs.setInt('dailyStreak', _dailyStreak);
@@ -686,10 +598,6 @@ class AppState extends ChangeNotifier {
     await prefs.setString('dailyChallengeDate', _dailyChallengeDate);
     await prefs.setString(
         'weeklyChallengeStartDate', _weeklyChallengeStartDate);
-
-    // Save unlocked animation styles
-    await prefs.setBool('unlockedLinear', _unlockedAnimations['Linear']!);
-    await prefs.setBool('unlockedSquare', _unlockedAnimations['Square']!);
   }
 
   // Check if we need to reset daily/weekly challenges
@@ -737,10 +645,6 @@ class AppState extends ChangeNotifier {
     switch (requirement['type']) {
       case 'streak':
         progress = _dailyStreak;
-        break;
-      case 'styles':
-        progress =
-            _unlockedAnimations.values.where((unlocked) => unlocked).length;
         break;
       case 'count':
         progress = _exercisesCompleted;
