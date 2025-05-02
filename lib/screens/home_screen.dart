@@ -42,8 +42,8 @@ class HomeScreen extends StatelessWidget {
                     const SizedBox(height: 20),
                     _buildWelcomeSection(context),
                     const SizedBox(height: 20),
-                    _buildPopularTechniques(context),
-                    const SizedBox(height: 30),
+                    _buildAllTechniques(context),
+                    const SizedBox(height: 40),
                     _buildRecentHistory(context),
                     const SizedBox(height: 20),
                   ],
@@ -108,56 +108,40 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPopularTechniques(BuildContext context) {
+  Widget _buildAllTechniques(BuildContext context) {
     final appState = Provider.of<AppState>(context);
     final techniques = appState.breathingTechniques;
-
-    // Define popular techniques (first 4 for this example)
-    final popularTechniques = techniques.take(4).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Popular Techniques',
-                style: GoogleFonts.lato(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF2F4F4F),
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  // Show all techniques in a modal bottom sheet
-                  _showAllTechniques(context, techniques);
-                },
-                child: Text(
-                  'See All',
-                  style: GoogleFonts.lato(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.primaryColor,
-                  ),
-                ),
-              ),
-            ],
+          child: Text(
+            'All Techniques',
+            style: GoogleFonts.lato(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: const Color(0xFF2F4F4F),
+            ),
           ),
         ),
         const SizedBox(height: 10),
-        SizedBox(
-          height: 120,
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            scrollDirection: Axis.horizontal,
-            itemCount: popularTechniques.length,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: GridView.builder(
+            physics: const NeverScrollableScrollPhysics(),
+            shrinkWrap: true,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 16.0,
+              mainAxisSpacing: 16.0,
+              childAspectRatio: 1.0,
+            ),
+            itemCount: techniques.length,
             itemBuilder: (context, index) {
-              final technique = popularTechniques[index];
-              return _buildPopularTechniqueCard(context, technique);
+              final technique = techniques[index];
+              return _buildTechniqueCard(context, technique);
             },
           ),
         ),
@@ -165,7 +149,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPopularTechniqueCard(
+  Widget _buildTechniqueCard(
       BuildContext context, BreathingTechnique technique) {
     IconData getIconData(String name) {
       switch (name) {
@@ -188,190 +172,53 @@ class HomeScreen extends StatelessWidget {
       }
     }
 
-    return Container(
-      margin: const EdgeInsets.only(right: 12),
-      width: 140,
-      child: Material(
-        color: technique.color,
-        elevation: 2.0,
+    return Material(
+      color: technique.color,
+      elevation: 2.0,
+      borderRadius: BorderRadius.circular(12.0),
+      child: InkWell(
         borderRadius: BorderRadius.circular(12.0),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12.0),
-          onTap: () {
-            Navigator.push(
-              context,
-              PageRouteBuilder(
-                pageBuilder: (context, animation, secondaryAnimation) =>
-                    TechniqueDetailScreen(technique: technique),
-                transitionsBuilder:
-                    (context, animation, secondaryAnimation, child) {
-                  return FadeTransition(opacity: animation, child: child);
-                },
-                transitionDuration: const Duration(milliseconds: 400),
-              ),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Icon(
-                  getIconData(technique.iconName),
-                  size: 32.0,
-                  color: Colors.white,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  technique.name,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.lato(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+        onTap: () {
+          Navigator.push(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  TechniqueDetailScreen(technique: technique),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
+                return FadeTransition(opacity: animation, child: child);
+              },
+              transitionDuration: const Duration(milliseconds: 400),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showAllTechniques(
-      BuildContext context, List<BreathingTechnique> techniques) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.75,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
-        ),
-        child: Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 10),
-              width: 40,
-              height: 5,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(10),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(
+                getIconData(technique.iconName),
+                size: 40.0,
+                color: Colors.white,
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                'All Breathing Techniques',
+              const SizedBox(height: 10),
+              Text(
+                technique.name,
+                textAlign: TextAlign.center,
                 style: GoogleFonts.lato(
-                  fontSize: 20,
+                  color: Colors.white,
                   fontWeight: FontWeight.bold,
-                  color: const Color(0xFF2F4F4F),
+                  fontSize: 15,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            Expanded(
-              child: _buildTechniqueGrid(context, techniques),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    );
-  }
-
-  Widget _buildTechniqueGrid(
-      BuildContext context, List<BreathingTechnique> techniques) {
-    IconData getIconData(String name) {
-      switch (name) {
-        case 'wind':
-          return FeatherIcons.wind;
-        case 'moon':
-          return FeatherIcons.moon;
-        case 'square':
-          return FeatherIcons.square;
-        case 'git-branch':
-          return FeatherIcons.gitBranch;
-        case 'sunrise':
-          return FeatherIcons.sunrise;
-        case 'headphones':
-          return FeatherIcons.headphones;
-        case 'zap':
-          return FeatherIcons.zap;
-        default:
-          return FeatherIcons.activity;
-      }
-    }
-
-    return GridView.builder(
-      padding: const EdgeInsets.all(16.0),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16.0,
-        mainAxisSpacing: 16.0,
-        childAspectRatio: 1.0,
-      ),
-      itemCount: techniques.length,
-      itemBuilder: (context, index) {
-        final technique = techniques[index];
-        return Material(
-          color: technique.color,
-          elevation: 2.0,
-          borderRadius: BorderRadius.circular(12.0),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12.0),
-            onTap: () {
-              Navigator.pop(context); // Close the bottom sheet
-              Navigator.push(
-                context,
-                PageRouteBuilder(
-                  pageBuilder: (context, animation, secondaryAnimation) =>
-                      TechniqueDetailScreen(technique: technique),
-                  transitionsBuilder:
-                      (context, animation, secondaryAnimation, child) {
-                    return FadeTransition(opacity: animation, child: child);
-                  },
-                  transitionDuration: const Duration(milliseconds: 400),
-                ),
-              );
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Icon(
-                    getIconData(technique.iconName),
-                    size: 40.0,
-                    color: Colors.white,
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    technique.name,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.lato(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 
