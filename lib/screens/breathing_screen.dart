@@ -350,15 +350,15 @@ class _BreathingScreenState extends State<BreathingScreen>
   }
 
   void _checkForTitleUnlock(AppState appState) {
-    if (appState.points >= 50 && appState.points < 60) {
+    if (appState.points >= 100 && appState.points < 110) {
       _showTitleUnlockDialog("Calm Seeker");
-    } else if (appState.points >= 100 &&
-        appState.points < 110 &&
-        appState.completedChallenges.isNotEmpty) {
-      _showTitleUnlockDialog("Breath Master");
-    } else if (appState.points >= 200 &&
-        appState.points < 210 &&
+    } else if (appState.points >= 250 &&
+        appState.points < 260 &&
         appState.completedChallenges.length >= 2) {
+      _showTitleUnlockDialog("Breath Master");
+    } else if (appState.points >= 500 &&
+        appState.points < 510 &&
+        appState.completedChallenges.length >= 4) {
       _showTitleUnlockDialog("Breath Legend");
     }
   }

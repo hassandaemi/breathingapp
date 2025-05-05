@@ -695,26 +695,32 @@ class ProfileScreen extends StatelessWidget {
     String nextTitle;
     String requirement;
 
-    if (appState.points < 50) {
+    if (appState.points < 100) {
       nextTitle = "Calm Seeker";
-      requirement = "Earn ${50 - appState.points} more points";
-    } else if (appState.points < 100 || appState.completedChallenges.isEmpty) {
-      nextTitle = "Breath Master";
-      if (appState.points < 100) {
-        requirement =
-            "Earn ${100 - appState.points} more points and complete 1 challenge";
-      } else {
-        requirement = "Complete at least 1 challenge";
-      }
-    } else if (appState.points < 200 ||
+      requirement = "Earn ${100 - appState.points} more points";
+    } else if (appState.points < 250 ||
         appState.completedChallenges.length < 2) {
-      nextTitle = "Breath Legend";
-      if (appState.points < 200) {
+      nextTitle = "Breath Master";
+      if (appState.points < 250 && appState.completedChallenges.length < 2) {
         requirement =
-            "Earn ${200 - appState.points} more points and complete ${2 - appState.completedChallenges.length} more challenge(s)";
+            "Earn ${250 - appState.points} more points and complete ${2 - appState.completedChallenges.length} more challenge(s)";
+      } else if (appState.points < 250) {
+        requirement = "Earn ${250 - appState.points} more points";
       } else {
         requirement =
             "Complete ${2 - appState.completedChallenges.length} more challenge(s)";
+      }
+    } else if (appState.points < 500 ||
+        appState.completedChallenges.length < 4) {
+      nextTitle = "Breath Legend";
+      if (appState.points < 500 && appState.completedChallenges.length < 4) {
+        requirement =
+            "Earn ${500 - appState.points} more points and complete ${4 - appState.completedChallenges.length} more challenge(s)";
+      } else if (appState.points < 500) {
+        requirement = "Earn ${500 - appState.points} more points";
+      } else {
+        requirement =
+            "Complete ${4 - appState.completedChallenges.length} more challenge(s)";
       }
     } else {
       nextTitle = "Breath Legend";

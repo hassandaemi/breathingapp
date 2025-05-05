@@ -36,6 +36,7 @@ class AppState extends ChangeNotifier {
   bool _soundEnabled = false; // Sound is disabled by default
   String _selectedSound = 'nature'; // Default sound option
   String? _reminderTime; // Daily reminder time
+  int _dailyExerciseCount = 0; // Track exercises completed per day
 
   // List of completed challenges
   List<String> _completedChallenges = [];
@@ -240,6 +241,7 @@ class AppState extends ChangeNotifier {
   String? get reminderTime => _reminderTime;
   int get dailyChallengeProgress => _dailyChallengeProgress;
   int get weeklyChallengeProgress => _weeklyChallengeProgress;
+  int get dailyExerciseCount => _dailyExerciseCount;
 
   // Getter for breathing techniques
   List<BreathingTechnique> get breathingTechniques => _breathingTechniques;
@@ -251,7 +253,28 @@ class AppState extends ChangeNotifier {
 
   // Add points when exercise is completed
   void addPoints(int value) {
-    _points += value;
+    // Check if it's a new day and reset daily exercise count if needed
+    _checkAndResetDailyExerciseCount();
+
+    // Calculate points based on daily exercise count
+    int pointsToAdd = 0;
+
+    // Award points based on daily exercise count (first 3 exercises only)
+    if (_dailyExerciseCount == 0) {
+      pointsToAdd = 15; // First exercise: 15 points
+    } else if (_dailyExerciseCount == 1) {
+      pointsToAdd = 10; // Second exercise: 10 points
+    } else if (_dailyExerciseCount == 2) {
+      pointsToAdd = 5; // Third exercise: 5 points
+    } else {
+      pointsToAdd = 0; // Additional exercises: 0 points
+    }
+
+    // Increment daily exercise count
+    _dailyExerciseCount++;
+
+    // Add points to total
+    _points += pointsToAdd;
 
     // Increment completed exercises count
     _exercisesCompleted++;
@@ -273,6 +296,15 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Check if it's a new day and reset daily exercise count if needed
+  void _checkAndResetDailyExerciseCount() {
+    final today = DateTime.now().toIso8601String().split('T')[0]; // YYYY-MM-DD
+
+    if (_lastExerciseDate != today) {
+      _dailyExerciseCount = 0;
+    }
+  }
+
   // Update daily challenge progress
   void _updateDailyChallenge() {
     final today = DateTime.now().toIso8601String().split('T')[0]; // YYYY-MM-DD
@@ -289,7 +321,7 @@ class AppState extends ChangeNotifier {
     // Check if daily challenge is completed
     if (_dailyChallengeProgress >= 1 &&
         !_completedChallenges.contains('daily_challenge')) {
-      _completedChallenges.add('daily_challenge');
+      awardChallengePoints('daily_challenge');
     }
   }
 
@@ -315,7 +347,7 @@ class AppState extends ChangeNotifier {
     // Check if weekly challenge is completed
     if (_weeklyChallengeProgress >= 5 &&
         !_completedChallenges.contains('weekly_challenge')) {
-      _completedChallenges.add('weekly_challenge');
+      awardChallengePoints('weekly_challenge');
     }
   }
 
@@ -330,11 +362,11 @@ class AppState extends ChangeNotifier {
 
   // Get user title based on points and challenges
   String getUserTitle() {
-    if (_points >= 200 && _completedChallenges.length >= 2) {
+    if (_points >= 500 && _completedChallenges.length >= 4) {
       return "Breath Legend";
-    } else if (_points >= 100 && _completedChallenges.isNotEmpty) {
+    } else if (_points >= 250 && _completedChallenges.length >= 2) {
       return "Breath Master";
-    } else if (_points >= 50) {
+    } else if (_points >= 100) {
       return "Calm Seeker";
     } else {
       return "Breath Novice";
@@ -374,15 +406,53 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Award points for completing challenges
+  void awardChallengePoints(String challengeId) {
+    // Only award points if this is a new challenge completion
+    if (_completedChallenges.contains(challengeId)) {
+      return;
+    }
+
+    // Add challenge to completed list
+    _completedChallenges.add(challengeId);
+
+    // Award points based on challenge difficulty
+    int pointsToAward = 0;
+
+    // Simple challenges
+    if (challengeId == 'daily_challenge' || challengeId == 'exercises_10') {
+      pointsToAward = 20; // Simple challenges: 20 points
+    }
+    // Medium challenges
+    else if (challengeId == 'streak_7' ||
+        challengeId == 'level_2' ||
+        challengeId == 'weekly_challenge') {
+      pointsToAward = 50; // Medium challenges: 50 points
+    }
+    // Hard challenges
+    else if (challengeId == 'streak_30' ||
+        challengeId == 'exercises_50' ||
+        challengeId == 'all_exercises') {
+      pointsToAward = 100; // Hard challenges: 100 points
+    }
+
+    // Add points to total
+    _points += pointsToAward;
+
+    // Update level when points change
+    _updateLevel();
+
+    _saveToPrefs();
+    notifyListeners();
+  }
+
   // Check streak-based challenges
   void _checkStreakChallenges() {
     if (_dailyStreak >= 7 && !_completedChallenges.contains('streak_7')) {
-      _completedChallenges.add('streak_7');
-      notifyListeners();
+      awardChallengePoints('streak_7');
     }
     if (_dailyStreak >= 30 && !_completedChallenges.contains('streak_30')) {
-      _completedChallenges.add('streak_30');
-      notifyListeners();
+      awardChallengePoints('streak_30');
     }
   }
 
@@ -390,21 +460,18 @@ class AppState extends ChangeNotifier {
   void _checkExerciseCountChallenges() {
     if (_exercisesCompleted >= 10 &&
         !_completedChallenges.contains('exercises_10')) {
-      _completedChallenges.add('exercises_10');
-      notifyListeners();
+      awardChallengePoints('exercises_10');
     }
     if (_exercisesCompleted >= 50 &&
         !_completedChallenges.contains('exercises_50')) {
-      _completedChallenges.add('exercises_50');
-      notifyListeners();
+      awardChallengePoints('exercises_50');
     }
   }
 
   // Check level-based challenges
   void _checkLevelChallenges() {
     if (_level >= 2 && !_completedChallenges.contains('level_2')) {
-      _completedChallenges.add('level_2');
-      notifyListeners();
+      awardChallengePoints('level_2');
     }
   }
 
@@ -425,9 +492,7 @@ class AppState extends ChangeNotifier {
     // If all breathing techniques have been completed, add the challenge
     if (completedExercises.length >= _breathingTechniques.length &&
         !_completedChallenges.contains('all_exercises')) {
-      _completedChallenges.add('all_exercises');
-      _saveToPrefs();
-      notifyListeners();
+      awardChallengePoints('all_exercises');
     }
   }
 
@@ -559,6 +624,7 @@ class AppState extends ChangeNotifier {
     _soundEnabled = prefs.getBool('soundEnabled') ?? false;
     _selectedSound = prefs.getString('selectedSound') ?? 'nature';
     _reminderTime = prefs.getString('reminderTime');
+    _dailyExerciseCount = prefs.getInt('dailyExerciseCount') ?? 0;
 
     // Load challenge progress
     _dailyChallengeProgress = prefs.getInt('dailyChallengeProgress') ?? 0;
@@ -572,6 +638,9 @@ class AppState extends ChangeNotifier {
 
     // Check if we need to reset daily/weekly challenges
     _checkChallengeResets();
+
+    // Check if we need to reset daily exercise count
+    _checkAndResetDailyExerciseCount();
 
     notifyListeners();
   }
@@ -588,6 +657,7 @@ class AppState extends ChangeNotifier {
     await prefs.setInt('exercisesCompleted', _exercisesCompleted);
     await prefs.setBool('soundEnabled', _soundEnabled);
     await prefs.setString('selectedSound', _selectedSound);
+    await prefs.setInt('dailyExerciseCount', _dailyExerciseCount);
     if (_reminderTime != null) {
       await prefs.setString('reminderTime', _reminderTime!);
     }
