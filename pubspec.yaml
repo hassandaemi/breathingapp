@@ -70,9 +70,10 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    - assets/sounds/nature/
-    - assets/sounds/ocean/
-    - assets/sounds/meditation/
+    - assets/images/profiles/profile_level1.webp
+    - assets/images/profiles/profile_level2.webp
+    - assets/images/profiles/profile_level3.webp
+    - assets/images/profiles/profile_level4.webp
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

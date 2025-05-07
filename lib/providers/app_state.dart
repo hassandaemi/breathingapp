@@ -30,6 +30,7 @@ class AppState extends ChangeNotifier {
   int _points = 0;
   bool _notificationsEnabled = true;
   int _level = 0; // Current user level
+  bool _justLeveledUp = false; // Track if user just leveled up
   int _dailyStreak = 0; // Track consecutive days
   String _lastExerciseDate = ''; // Track last exercise date
   int _exercisesCompleted = 0; // Track total completed exercises
@@ -228,6 +229,7 @@ class AppState extends ChangeNotifier {
   // Getter methods
   int get points => _points;
   int get level => _level;
+  bool get justLeveledUp => _justLeveledUp;
   int get dailyStreak => _dailyStreak;
   String get lastExerciseDate => _lastExerciseDate;
   List<String> get completedChallenges => _completedChallenges;
@@ -355,8 +357,30 @@ class AppState extends ChangeNotifier {
   void _updateLevel() {
     int newLevel = _points ~/ 100;
     if (newLevel != _level) {
+      int previousLevel = _level;
       _level = newLevel;
+      _justLeveledUp = true;
+
+      // Check if this level up unlocked a new profile image
+      bool profileImageChanged = hasProfileImageChanged(previousLevel);
+
+      // If profile image changed, show a special message
+      if (profileImageChanged) {
+        // This will be used by the UI to show a special message
+        // The actual message will be shown in the ProfileScreen
+      }
+
       _checkLevelChallenges();
+    } else {
+      _justLeveledUp = false;
+    }
+  }
+
+  // Reset the level up flag after it's been used
+  void resetLevelUpFlag() {
+    if (_justLeveledUp) {
+      _justLeveledUp = false;
+      notifyListeners();
     }
   }
 
@@ -371,6 +395,32 @@ class AppState extends ChangeNotifier {
     } else {
       return "Breath Novice";
     }
+  }
+
+  // Get profile image path based on user level
+  String getProfileImagePath() {
+    if (_points >= 500 && _completedChallenges.length >= 4) {
+      return "assets/images/profiles/profile_level4.webp"; // Breath Legend
+    } else if (_points >= 250 && _completedChallenges.length >= 2) {
+      return "assets/images/profiles/profile_level3.webp"; // Breath Master
+    } else if (_points >= 100) {
+      return "assets/images/profiles/profile_level2.webp"; // Calm Seeker
+    } else {
+      return "assets/images/profiles/profile_level1.webp"; // Breath Novice
+    }
+  }
+
+  // Check if profile image has changed with level up
+  bool hasProfileImageChanged(int previousLevel) {
+    // If user just reached level 1, 2, or 5
+    if ((previousLevel < 1 && _level >= 1) || // First level up
+        (previousLevel < 2 && _level >= 2) || // Unlocked Calm Seeker
+        (previousLevel < 3 && _level >= 3) || // Unlocked Breath Master
+        (previousLevel < 5 && _level >= 5)) {
+      // Unlocked Breath Legend
+      return true;
+    }
+    return false;
   }
 
   // Update daily streak when exercise is completed
@@ -617,6 +667,7 @@ class AppState extends ChangeNotifier {
     _points = prefs.getInt('points') ?? 0;
     _notificationsEnabled = prefs.getBool('notificationsEnabled') ?? true;
     _level = prefs.getInt('level') ?? 0;
+    _justLeveledUp = false; // Always initialize to false on load
     _dailyStreak = prefs.getInt('dailyStreak') ?? 0;
     _lastExerciseDate = prefs.getString('lastExerciseDate') ?? '';
     _completedChallenges = prefs.getStringList('completedChallenges') ?? [];

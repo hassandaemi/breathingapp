@@ -5,9 +5,92 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
 import 'settings_screen.dart';
+import 'dart:async';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+  Timer? _levelUpTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.elasticOut,
+      ),
+    );
+
+    // Check for level up after widget is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForLevelUp();
+    });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _levelUpTimer?.cancel();
+    super.dispose();
+  }
+
+  void _checkForLevelUp() {
+    final appState = Provider.of<AppState>(context, listen: false);
+    if (appState.justLeveledUp) {
+      // Play level up animation
+      _animationController.repeat(reverse: true);
+
+      // Get the appropriate message based on the level
+      String message = '';
+
+      // Check if this level unlocks a new profile image
+      if (appState.level == 1) {
+        message =
+            'Congratulations! You reached Level ${appState.level}! You\'ve unlocked the Breath Novice profile image!';
+      } else if (appState.level == 2) {
+        message =
+            'Congratulations! You reached Level ${appState.level}! You\'ve unlocked the Calm Seeker profile image!';
+      } else if (appState.level == 3) {
+        message =
+            'Congratulations! You reached Level ${appState.level}! You\'ve unlocked the Breath Master profile image!';
+      } else if (appState.level >= 5) {
+        message =
+            'Congratulations! You reached Level ${appState.level}! You\'ve unlocked the Breath Legend profile image!';
+      } else {
+        message = 'Congratulations! You reached Level ${appState.level}!';
+      }
+
+      // Show level up message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+
+      // Stop animation after 3 seconds
+      _levelUpTimer = Timer(const Duration(seconds: 3), () {
+        _animationController.stop();
+        _animationController.reset();
+        appState.resetLevelUpFlag();
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -98,22 +181,42 @@ class ProfileScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: profileSize,
-                height: profileSize,
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withAlpha((0.2 * 255).toInt()),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppTheme.primaryColor,
-                    width: 2,
-                  ),
-                ),
-                child: Icon(
-                  Icons.person,
-                  size: profileSize * 0.5,
-                  color: AppTheme.primaryColor,
-                ),
+              AnimatedBuilder(
+                animation: _scaleAnimation,
+                builder: (context, child) {
+                  return Transform.scale(
+                    scale: _scaleAnimation.value,
+                    child: Container(
+                      width: profileSize,
+                      height: profileSize,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppTheme.primaryColor,
+                          width: 2,
+                        ),
+                        boxShadow: appState.justLeveledUp
+                            ? [
+                                BoxShadow(
+                                  color: Colors.amber.withAlpha(
+                                      128), // 0.5 * 255 = 127.5 ≈ 128
+                                  blurRadius: 10,
+                                  spreadRadius: 5,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: ClipOval(
+                        child: Image.asset(
+                          appState.getProfileImagePath(),
+                          fit: BoxFit.cover,
+                          width: profileSize,
+                          height: profileSize,
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
               SizedBox(width: screenSize.width * 0.05),
               Expanded(
