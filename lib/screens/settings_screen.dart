@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
+import '../models/music_track.dart';
 import 'mood_analysis_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -101,6 +102,22 @@ class SettingsScreen extends StatelessWidget {
                   value: appState.soundEnabled,
                   onChanged: (value) {
                     appState.toggleSound();
+                  },
+                  activeColor: AppTheme.primaryColor,
+                ),
+              ),
+              const SizedBox(height: 15),
+              _buildSettingsCard(
+                title: 'Background Music',
+                description: 'Play relaxing music during exercises',
+                icon: Icons.library_music,
+                onTap: () {
+                  _showMusicSelectionDialog(context, appState);
+                },
+                trailing: Switch(
+                  value: appState.backgroundMusicEnabled,
+                  onChanged: (value) {
+                    appState.toggleBackgroundMusic();
                   },
                   activeColor: AppTheme.primaryColor,
                 ),
@@ -238,6 +255,130 @@ class SettingsScreen extends StatelessWidget {
               Navigator.pop(context);
             }
           : null,
+    );
+  }
+
+  void _showMusicSelectionDialog(BuildContext context, AppState appState) {
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Background Music'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SwitchListTile(
+                    title: const Text('Enable Background Music'),
+                    value: appState.backgroundMusicEnabled,
+                    onChanged: (bool value) {
+                      appState.toggleBackgroundMusic();
+                      setState(() {}); // Update dialog UI
+                    },
+                    activeColor: AppTheme.primaryColor,
+                  ),
+                  const Divider(),
+                  const Text('Select Music:'),
+                  const SizedBox(height: 16),
+                  ...appState.musicTracks.map((track) => _buildMusicOption(
+                        context,
+                        appState,
+                        track,
+                        setState,
+                      )),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Music will play during breathing exercises',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildMusicOption(
+    BuildContext context,
+    AppState appState,
+    MusicTrack track,
+    Function setState,
+  ) {
+    final bool isSelected = appState.selectedMusicTrackId == track.id;
+    final bool isDownloaded = track.isDownloaded;
+
+    return ListTile(
+      title: Text(track.name),
+      subtitle: Text(
+        isDownloaded ? 'Available offline' : 'Streams from internet',
+        style: const TextStyle(fontSize: 12),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!isDownloaded)
+            IconButton(
+              icon: const Icon(Icons.download),
+              onPressed: appState.backgroundMusicEnabled
+                  ? () async {
+                      // Show loading indicator
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (context) => const Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+
+                      // Download the track
+                      await appState.downloadMusicTrack(track.id);
+
+                      // Close loading dialog
+                      if (context.mounted) Navigator.of(context).pop();
+
+                      // Update dialog UI
+                      setState(() {});
+                    }
+                  : null,
+              tooltip: 'Download for offline use',
+            ),
+          Radio<String>(
+            value: track.id,
+            groupValue: appState.selectedMusicTrackId,
+            onChanged: appState.backgroundMusicEnabled
+                ? (value) {
+                    if (value != null) {
+                      appState.setSelectedMusicTrack(value);
+                      setState(() {}); // Update dialog UI
+                    }
+                  }
+                : null,
+            activeColor: AppTheme.primaryColor,
+          ),
+        ],
+      ),
+      enabled: appState.backgroundMusicEnabled,
+      onTap: appState.backgroundMusicEnabled
+          ? () {
+              appState.setSelectedMusicTrack(track.id);
+              setState(() {}); // Update dialog UI
+            }
+          : null,
+      selected: isSelected,
     );
   }
 

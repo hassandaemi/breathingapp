@@ -7,6 +7,7 @@ import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/mood_dialog.dart';
 import '../widgets/custom_breathing_animation.dart';
+import '../widgets/music_player_widget.dart';
 import 'profile_screen.dart';
 
 class BreathingScreen extends StatefulWidget {
@@ -25,6 +26,7 @@ class _BreathingScreenState extends State<BreathingScreen>
       _pulseController; // For phase transition pulse effect
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isAudioInitialized = false;
+  late AppState _appState; // Store reference to AppState
 
   bool _isRunning = false;
   bool _isPaused = false;
@@ -57,6 +59,9 @@ class _BreathingScreenState extends State<BreathingScreen>
   @override
   void initState() {
     super.initState();
+
+    // Initialize AppState reference
+    _appState = Provider.of<AppState>(context, listen: false);
 
     // Validate the technique's pattern
     if (widget.technique.pattern.isEmpty) {
@@ -102,6 +107,7 @@ class _BreathingScreenState extends State<BreathingScreen>
 
     _prepareForStart();
     _initAudio();
+    // Removed automatic background music start. Music is now only controlled by the music widget.
   }
 
   Future<void> _initAudio() async {
@@ -115,8 +121,7 @@ class _BreathingScreenState extends State<BreathingScreen>
   }
 
   void _playPhaseSound(String phase) async {
-    final appState = Provider.of<AppState>(context, listen: false);
-    if (!appState.soundEnabled || !_isAudioInitialized) return;
+    if (!_appState.soundEnabled || !_isAudioInitialized) return;
 
     try {
       // This is a placeholder for actual audio file paths
@@ -124,21 +129,21 @@ class _BreathingScreenState extends State<BreathingScreen>
       String audioPath;
       switch (phase) {
         case 'inhale':
-          audioPath = 'assets/sounds/${appState.selectedSound}/inhale.mp3';
+          audioPath = 'assets/sounds/${_appState.selectedSound}/inhale.mp3';
           break;
         case 'hold':
         case 'hold1':
         case 'hold2':
-          audioPath = 'assets/sounds/${appState.selectedSound}/hold.mp3';
+          audioPath = 'assets/sounds/${_appState.selectedSound}/hold.mp3';
           break;
         case 'exhale':
-          audioPath = 'assets/sounds/${appState.selectedSound}/exhale.mp3';
+          audioPath = 'assets/sounds/${_appState.selectedSound}/exhale.mp3';
           break;
         case 'completed':
-          audioPath = 'assets/sounds/${appState.selectedSound}/complete.mp3';
+          audioPath = 'assets/sounds/${_appState.selectedSound}/complete.mp3';
           break;
         default:
-          audioPath = 'assets/sounds/${appState.selectedSound}/inhale.mp3';
+          audioPath = 'assets/sounds/${_appState.selectedSound}/inhale.mp3';
       }
 
       // For now, we'll use a beep sound as a placeholder
@@ -161,6 +166,7 @@ class _BreathingScreenState extends State<BreathingScreen>
     _controller.dispose();
     _pulseController.dispose();
     _audioPlayer.dispose();
+    // Removed automatic background music stop. Music is now only controlled by the music widget.
     super.dispose();
   }
 
@@ -181,7 +187,7 @@ class _BreathingScreenState extends State<BreathingScreen>
 
   void _startBreathing() {
     if (_isRunning && !_isPaused) return;
-
+    // Removed automatic background music start. Music is now only controlled by the music widget.
     setState(() {
       if (_isCompleted) {
         _prepareForStart();
@@ -308,15 +314,11 @@ class _BreathingScreenState extends State<BreathingScreen>
     return s[0].toUpperCase() + s.substring(1);
   }
 
-  void _completeExercise() {
+  void _completeExercise() async {
     if (!mounted || _isCompleted) return;
     _controller.stop();
 
-    final appState = Provider.of<AppState>(context, listen: false);
-    appState.addPoints(10);
-    appState.updateDailyStreak();
-    appState.checkAllExercisesChallenge(widget.technique.name);
-
+    // First update the UI to show completion
     setState(() {
       _isRunning = false;
       _isPaused = false;
@@ -328,25 +330,35 @@ class _BreathingScreenState extends State<BreathingScreen>
     // Play completion sound
     _playPhaseSound('completed');
 
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (BuildContext context) {
-            return MoodDialog(
-              onCompleted: () {
-                if (mounted) {
-                  // Don't pop the breathing screen, just check for title unlock
-                  // This allows the user to stay on this screen and practice again
-                  _checkForTitleUnlock(appState);
-                }
-              },
-            );
-          },
-        );
-      }
-    });
+    // Removed automatic background music stop. Music is now only controlled by the music widget.
+
+    // Add points and update stats
+    _appState.addPoints(10);
+    _appState.updateDailyStreak();
+    _appState.checkAllExercisesChallenge(widget.technique.name);
+
+    // Show dialog with a slight delay and make it dismissible
+    if (mounted) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: true, // Allow dismissing by tapping outside
+            builder: (BuildContext context) {
+              return MoodDialog(
+                onCompleted: () {
+                  if (mounted) {
+                    // Don't pop the breathing screen, just check for title unlock
+                    // This allows the user to stay on this screen and practice again
+                    _checkForTitleUnlock(_appState);
+                  }
+                },
+              );
+            },
+          );
+        }
+      });
+    }
   }
 
   void _checkForTitleUnlock(AppState appState) {
@@ -496,147 +508,384 @@ class _BreathingScreenState extends State<BreathingScreen>
           gradient: AppTheme.mainGradient,
         ),
         child: SafeArea(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 20.0),
-                child: Text(
-                  _isCompleted
-                      ? 'Well Done!'
-                      : _currentCycle > 0
-                          ? 'Cycle $_currentCycle of ${_getRequiredCycles()}'
-                          : (_isRunning ? 'Get Ready...' : ' '),
-                  style: GoogleFonts.lato(
-                      fontSize: 18,
-                      color:
-                          AppTheme.primaryColor.withAlpha((0.8 * 255).toInt()),
-                      fontWeight: FontWeight.w600),
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        // Pulse animation for phase transitions
-                        if (_showPulse)
-                          AnimatedBuilder(
-                            animation: _pulseController,
-                            builder: (context, child) {
-                              return Container(
-                                width: 270,
-                                height: 270,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: AppTheme.primaryColor.withAlpha(
-                                    ((1.0 - _pulseController.value) * 0.3 * 255)
-                                        .toInt(),
+          // Use LayoutBuilder to ensure the layout respects its constraints
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // Ensure the column doesn't overflow
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  // Responsive top cycle indicator
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      // Calculate available space
+                      final screenHeight = MediaQuery.of(context).size.height;
+                      final screenWidth = MediaQuery.of(context).size.width;
+                      final isSmallScreen =
+                          screenWidth < 360 || screenHeight < 600;
+                      final isVerySmallScreen =
+                          screenWidth < 300 || screenHeight < 500;
+
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          top: isVerySmallScreen
+                              ? 8.0
+                              : (isSmallScreen ? 12.0 : 16.0),
+                          left: 8.0,
+                          right: 8.0,
+                          bottom: isVerySmallScreen ? 0.0 : 4.0,
+                        ),
+                        child: Text(
+                          _isCompleted
+                              ? 'Well Done!'
+                              : _currentCycle > 0
+                                  ? 'Cycle $_currentCycle of ${_getRequiredCycles()}'
+                                  : (_isRunning ? 'Get Ready...' : ' '),
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.lato(
+                            fontSize: isVerySmallScreen
+                                ? 14
+                                : (isSmallScreen ? 16 : 18),
+                            color: AppTheme.primaryColor
+                                .withAlpha((0.8 * 255).toInt()),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        // Calculate available space
+                        final screenHeight = MediaQuery.of(context).size.height;
+                        final screenWidth = MediaQuery.of(context).size.width;
+                        final isSmallScreen =
+                            screenWidth < 360 || screenHeight < 600;
+                        final isVerySmallScreen =
+                            screenWidth < 300 || screenHeight < 500;
+
+                        // Calculate the smaller dimension for proportional sizing
+                        final smallerDimension = screenWidth < screenHeight
+                            ? screenWidth
+                            : screenHeight;
+
+                        // Adaptive sizes based on screen dimensions
+                        final animationSize = isVerySmallScreen
+                            ? smallerDimension * 0.5
+                            : (isSmallScreen
+                                ? smallerDimension * 0.6
+                                : smallerDimension * 0.65);
+
+                        final pulseSize = animationSize *
+                            1.1; // Slightly larger than animation
+
+                        final timerSize = isVerySmallScreen
+                            ? 90.0
+                            : (isSmallScreen ? 100.0 : 120.0);
+
+                        final timerFontSize = isVerySmallScreen
+                            ? 32.0
+                            : (isSmallScreen ? 38.0 : 46.0);
+
+                        final phaseNameFontSize = isVerySmallScreen
+                            ? 18.0
+                            : (isSmallScreen ? 22.0 : 26.0);
+
+                        final subtextFontSize = isVerySmallScreen
+                            ? 9.0
+                            : (isSmallScreen ? 10.0 : 12.0);
+
+                        // Spacing between elements
+                        final topSpacing = isVerySmallScreen
+                            ? 8.0
+                            : (isSmallScreen ? 12.0 : 20.0);
+
+                        final bottomSpacing = isVerySmallScreen
+                            ? 4.0
+                            : (isSmallScreen ? 6.0 : 10.0);
+
+                        return Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Animation container with adaptive sizing
+                            SizedBox(
+                              height: animationSize,
+                              width: animationSize,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  // Pulse animation for phase transitions
+                                  if (_showPulse)
+                                    AnimatedBuilder(
+                                      animation: _pulseController,
+                                      builder: (context, child) {
+                                        return Container(
+                                          width: pulseSize,
+                                          height: pulseSize,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color:
+                                                AppTheme.primaryColor.withAlpha(
+                                              ((1.0 - _pulseController.value) *
+                                                      0.3 *
+                                                      255)
+                                                  .toInt(),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  // Main breathing animation
+                                  CustomBreathingAnimation(
+                                    controller: _controller,
+                                    technique: widget.technique,
+                                    currentPhaseKey: _currentPhaseKey,
+                                    isCompleted: _isCompleted,
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // Responsive spacing
+                            SizedBox(height: topSpacing),
+
+                            // Phase name with responsive font size
+                            Text(
+                              _currentPhaseDisplayName,
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.lato(
+                                fontSize: phaseNameFontSize,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF4682B4),
+                              ),
+                            ),
+
+                            // Responsive spacing
+                            SizedBox(height: bottomSpacing),
+
+                            // Timer display with responsive sizing
+                            Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                SizedBox(
+                                  width: timerSize,
+                                  height: timerSize,
+                                  child: CircularProgressIndicator(
+                                    value: _controller.isAnimating
+                                        ? _controller.value
+                                        : 0,
+                                    strokeWidth: timerSize *
+                                        0.067, // Proportional stroke width
+                                    backgroundColor: AppTheme.primaryColor
+                                        .withAlpha((0.2 * 255).toInt()),
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      _isCompleted
+                                          ? Colors.green
+                                          : const Color(0xFF4682B4),
+                                    ),
                                   ),
                                 ),
-                              );
-                            },
-                          ),
-                        // Main breathing animation
-                        CustomBreathingAnimation(
-                          controller: _controller,
-                          technique: widget.technique,
-                          currentPhaseKey: _currentPhaseKey,
-                          isCompleted: _isCompleted,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 30),
-                    Text(
-                      _currentPhaseDisplayName,
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.lato(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF4682B4),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        SizedBox(
-                          width: 120,
-                          height: 120,
-                          child: CircularProgressIndicator(
-                            value:
-                                _controller.isAnimating ? _controller.value : 0,
-                            strokeWidth: 8.0,
-                            backgroundColor: AppTheme.primaryColor
-                                .withAlpha((0.2 * 255).toInt()),
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              _isCompleted
-                                  ? Colors.green
-                                  : const Color(0xFF4682B4),
-                            ),
-                          ),
-                        ),
-                        Column(
-                          children: [
-                            Text(
-                              // Format to show one decimal place for smoother countdown
-                              '${timeRemainingInPhase.toStringAsFixed(1)}s',
-                              style: GoogleFonts.lato(
-                                fontSize: 48,
-                                fontWeight: FontWeight.w300,
-                                color: AppTheme.primaryColor,
-                              ),
-                            ),
-                            Text(
-                              _currentPhaseKey == "get_ready"
-                                  ? "Starting soon..."
-                                  : (_isCompleted ? "Completed!" : ""),
-                              style: GoogleFonts.lato(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w300,
-                                color: AppTheme.primaryColor
-                                    .withAlpha((0.7 * 255).toInt()),
-                              ),
+                                Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      // Format to show one decimal place for smoother countdown
+                                      '${timeRemainingInPhase.toStringAsFixed(1)}s',
+                                      style: GoogleFonts.lato(
+                                        fontSize: timerFontSize,
+                                        fontWeight: FontWeight.w300,
+                                        color: AppTheme.primaryColor,
+                                      ),
+                                    ),
+                                    Text(
+                                      _currentPhaseKey == "get_ready"
+                                          ? "Starting soon..."
+                                          : (_isCompleted ? "Completed!" : ""),
+                                      style: GoogleFonts.lato(
+                                        fontSize: subtextFontSize,
+                                        fontWeight: FontWeight.w300,
+                                        color: AppTheme.primaryColor
+                                            .withAlpha((0.7 * 255).toInt()),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ],
-                        ),
-                      ],
+                        );
+                      },
                     ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 50.0),
-                child: ElevatedButton(
-                  onPressed: _isCompleted
-                      ? _prepareForStart
-                      : (_isRunning && !_isPaused
-                          ? _pauseBreathing
-                          : _startBreathing),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _isCompleted
-                        ? Colors.green
-                        : (_isRunning && !_isPaused
-                            ? Colors.orange
-                            : AppTheme.primaryColor),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 50, vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30.0),
-                    ),
-                    textStyle: GoogleFonts.lato(
-                        fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  child: Text(_isCompleted
-                      ? 'Practice Again'
-                      : (_isRunning && !_isPaused
-                          ? 'Pause'
-                          : (_isPaused ? 'Resume' : 'Start'))),
-                ),
-              ),
-            ],
+                  // Bottom controls section with improved responsive layout
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      // Calculate available space
+                      final screenHeight = MediaQuery.of(context).size.height;
+                      final screenWidth = MediaQuery.of(context).size.width;
+                      final isSmallScreen =
+                          screenWidth < 360 || screenHeight < 600;
+                      final isVerySmallScreen =
+                          screenWidth < 300 || screenHeight < 500;
+
+                      // Calculate adaptive sizes
+                      final buttonHeight = isVerySmallScreen
+                          ? 36.0
+                          : (isSmallScreen ? 40.0 : 48.0);
+                      final musicPlayerHeight = isVerySmallScreen
+                          ? screenHeight * 0.12
+                          : (isSmallScreen
+                              ? screenHeight * 0.15
+                              : screenHeight * 0.18);
+
+                      return _appState.backgroundMusicEnabled
+                          ? Container(
+                              padding: EdgeInsets.only(
+                                bottom: isVerySmallScreen
+                                    ? 6.0
+                                    : (isSmallScreen ? 10.0 : 16.0),
+                                top: isVerySmallScreen ? 4.0 : 8.0,
+                              ),
+                              constraints: BoxConstraints(
+                                maxHeight: isVerySmallScreen
+                                    ? screenHeight * 0.22
+                                    : screenHeight * 0.25,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(
+                                    child: Container(
+                                      padding: EdgeInsets.only(
+                                        bottom: isVerySmallScreen ? 6.0 : 8.0,
+                                      ),
+                                      constraints: BoxConstraints(
+                                        maxHeight: musicPlayerHeight,
+                                      ),
+                                      child: const MusicPlayerWidget(),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: screenWidth *
+                                        (isVerySmallScreen ? 0.5 : 0.6),
+                                    height: buttonHeight,
+                                    child: ElevatedButton(
+                                      onPressed: _isCompleted
+                                          ? _prepareForStart
+                                          : (_isRunning && !_isPaused
+                                              ? _pauseBreathing
+                                              : _startBreathing),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: _isCompleted
+                                            ? Colors.green
+                                            : (_isRunning && !_isPaused
+                                                ? Colors.orange
+                                                : AppTheme.primaryColor),
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: isVerySmallScreen
+                                              ? 16
+                                              : (isSmallScreen ? 24 : 32),
+                                          vertical: isVerySmallScreen
+                                              ? 6
+                                              : (isSmallScreen ? 8 : 10),
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(30.0),
+                                        ),
+                                        textStyle: GoogleFonts.lato(
+                                          fontSize: isVerySmallScreen
+                                              ? 14
+                                              : (isSmallScreen ? 16 : 18),
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        _isCompleted
+                                            ? 'Practice Again'
+                                            : (_isRunning && !_isPaused
+                                                ? 'Pause'
+                                                : (_isPaused
+                                                    ? 'Resume'
+                                                    : 'Start')),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : Padding(
+                              padding: EdgeInsets.only(
+                                bottom: isVerySmallScreen
+                                    ? 6.0
+                                    : (isSmallScreen ? 10.0 : 16.0),
+                                top: isVerySmallScreen ? 4.0 : 8.0,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  SizedBox(
+                                    width: screenWidth *
+                                        (isVerySmallScreen ? 0.5 : 0.6),
+                                    height: buttonHeight,
+                                    child: ElevatedButton(
+                                      onPressed: _isCompleted
+                                          ? _prepareForStart
+                                          : (_isRunning && !_isPaused
+                                              ? _pauseBreathing
+                                              : _startBreathing),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: _isCompleted
+                                            ? Colors.green
+                                            : (_isRunning && !_isPaused
+                                                ? Colors.orange
+                                                : AppTheme.primaryColor),
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: isVerySmallScreen
+                                              ? 16
+                                              : (isSmallScreen ? 24 : 32),
+                                          vertical: isVerySmallScreen
+                                              ? 6
+                                              : (isSmallScreen ? 8 : 10),
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(30.0),
+                                        ),
+                                        textStyle: GoogleFonts.lato(
+                                          fontSize: isVerySmallScreen
+                                              ? 14
+                                              : (isSmallScreen ? 16 : 18),
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        _isCompleted
+                                            ? 'Practice Again'
+                                            : (_isRunning && !_isPaused
+                                                ? 'Pause'
+                                                : (_isPaused
+                                                    ? 'Resume'
+                                                    : 'Start')),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                    },
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),

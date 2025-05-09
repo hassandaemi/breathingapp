@@ -18,6 +18,16 @@ class CustomBreathingAnimation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Get screen dimensions for responsive sizing
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    // Calculate appropriate size based on screen dimensions
+    // Use the smaller dimension to ensure it fits on all devices
+    final smallerDimension =
+        screenWidth < screenHeight ? screenWidth : screenHeight;
+    final circleSize = smallerDimension * 0.6; // 60% of the smaller dimension
+
     return AnimatedBuilder(
       animation: controller,
       builder: (context, child) {
@@ -47,16 +57,29 @@ class CustomBreathingAnimation extends StatelessWidget {
           progress = 0.0;
         }
 
-        return SizedBox(
-          width: 250,
-          height: 250,
-          child: CustomPaint(
-            painter: CirclePainter(
+        // Use LayoutBuilder to ensure the animation respects its container constraints
+        return LayoutBuilder(builder: (context, constraints) {
+          // Use the smaller of the available width/height or our calculated size
+          final availableSize = constraints.maxWidth < constraints.maxHeight
+              ? constraints.maxWidth
+              : constraints.maxHeight;
+
+          // Ensure the size doesn't exceed the available space
+          final size =
+              circleSize < availableSize ? circleSize : availableSize * 0.9;
+
+          return SizedBox(
+            width: size,
+            height: size,
+            child: CustomPaint(
+              painter: CirclePainter(
                 progress: progress,
                 color: progressColor,
-                isCompleted: isCompleted),
-          ),
-        );
+                isCompleted: isCompleted,
+              ),
+            ),
+          );
+        });
       },
     );
   }

@@ -1,7 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:audioplayers/audioplayers.dart';
 import '../main.dart';
+import '../models/music_track.dart';
 
 // Define the BreathingTechnique class outside AppState
 class BreathingTechnique {
@@ -38,6 +41,12 @@ class AppState extends ChangeNotifier {
   String _selectedSound = 'nature'; // Default sound option
   String? _reminderTime; // Daily reminder time
   int _dailyExerciseCount = 0; // Track exercises completed per day
+
+  // Background music properties
+  bool _backgroundMusicEnabled = false;
+  String _selectedMusicTrackId = 'calm_lake'; // Default music track
+  List<MusicTrack> _musicTracks = MusicTrack.predefinedTracks;
+  AudioPlayer? _musicPlayer;
 
   // List of completed challenges
   List<String> _completedChallenges = [];
@@ -82,6 +91,7 @@ class AppState extends ChangeNotifier {
   int _weeklyChallengeProgress = 0;
   String _dailyChallengeDate = '';
   String _weeklyChallengeStartDate = '';
+  String _weeklyChallengeLastUpdate = '';
 
   // Add the list of breathing techniques
   final List<BreathingTechnique> _breathingTechniques = [
@@ -245,6 +255,15 @@ class AppState extends ChangeNotifier {
   int get weeklyChallengeProgress => _weeklyChallengeProgress;
   int get dailyExerciseCount => _dailyExerciseCount;
 
+  // Music-related getters
+  bool get backgroundMusicEnabled => _backgroundMusicEnabled;
+  String get selectedMusicTrackId => _selectedMusicTrackId;
+  List<MusicTrack> get musicTracks => _musicTracks;
+  MusicTrack get selectedMusicTrack => _musicTracks.firstWhere(
+        (track) => track.id == _selectedMusicTrackId,
+        orElse: () => _musicTracks.first,
+      );
+
   // Getter for breathing techniques
   List<BreathingTechnique> get breathingTechniques => _breathingTechniques;
 
@@ -329,27 +348,35 @@ class AppState extends ChangeNotifier {
 
   // Update weekly challenge progress
   void _updateWeeklyChallenge() {
-    final now = DateTime.now();
+    try {
+      final now = DateTime.now();
+      final today = now.toIso8601String().split('T')[0];
+      
+      // Safely calculate week start
+      DateTime weekStart = now.subtract(Duration(days: now.weekday - 1));
+      final currentWeekStart = weekStart.toIso8601String().split('T')[0];
 
-    // Get the start of the current week (Monday)
-    final currentWeekStart = now
-        .subtract(Duration(days: now.weekday - 1))
-        .toIso8601String()
-        .split('T')[0];
+      // Validate stored date before comparison
+      if (_weeklyChallengeStartDate.isEmpty || _weeklyChallengeStartDate != currentWeekStart) {
+        _weeklyChallengeProgress = 0;
+        _weeklyChallengeStartDate = currentWeekStart;
+        _weeklyChallengeLastUpdate = '';
+      }
 
-    // Reset progress if it's a new week
-    if (_weeklyChallengeStartDate != currentWeekStart) {
-      _weeklyChallengeProgress = 0;
-      _weeklyChallengeStartDate = currentWeekStart;
-    }
+      // Only increment if we haven't already counted today
+      if (_weeklyChallengeLastUpdate != today) {
+        _weeklyChallengeProgress++;
+        _weeklyChallengeLastUpdate = today;
+      }
 
-    // Increment progress
-    _weeklyChallengeProgress++;
-
-    // Check if weekly challenge is completed
-    if (_weeklyChallengeProgress >= 5 &&
-        !_completedChallenges.contains('weekly_challenge')) {
-      awardChallengePoints('weekly_challenge');
+      // Check if weekly challenge is completed
+      if (_weeklyChallengeProgress >= 5 &&
+          !_completedChallenges.contains('weekly_challenge')) {
+        awardChallengePoints('weekly_challenge');
+      }
+    } catch (e) {
+      // Prevent crashes by catching any exceptions
+      print('Error in _updateWeeklyChallenge: $e');
     }
   }
 
@@ -574,6 +601,199 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Toggle background music
+  void toggleBackgroundMusic() {
+    _backgroundMusicEnabled = !_backgroundMusicEnabled;
+
+    if (!_backgroundMusicEnabled && _musicPlayer != null) {
+      _pauseBackgroundMusic();
+    } else if (_backgroundMusicEnabled && _musicPlayer != null) {
+      _resumeBackgroundMusic();
+    }
+
+    _saveToPrefs();
+    notifyListeners();
+  }
+
+  // Set selected music track
+  void setSelectedMusicTrack(String trackId) async {
+    if (_selectedMusicTrackId == trackId) return;
+
+    _selectedMusicTrackId = trackId;
+
+    // If music is currently playing, stop and restart with new track
+    if (_backgroundMusicEnabled && _musicPlayer != null) {
+      await _stopBackgroundMusic();
+      await _playBackgroundMusic();
+    }
+
+    _saveToPrefs();
+    notifyListeners();
+  }
+
+  // Initialize music player
+  Future<void> initMusicPlayer() async {
+    _musicPlayer ??= AudioPlayer();
+
+    // Update track download status
+    _updateMusicTrackStatus();
+  }
+
+  // Update music track status (check which ones are downloaded)
+  Future<void> _updateMusicTrackStatus() async {
+    List<MusicTrack> updatedTracks = [];
+
+    for (var track in _musicTracks) {
+      // Check if the track is already downloaded
+      if (track.localPath != null && track.isDownloaded) {
+        // Verify the file still exists
+        final file = File(track.localPath!);
+        if (await file.exists()) {
+          updatedTracks.add(track);
+          continue;
+        }
+      }
+
+      // Track not downloaded or file missing, add the original
+      updatedTracks.add(track);
+    }
+
+    _musicTracks = updatedTracks;
+    notifyListeners();
+  }
+
+  // Download a music track
+  Future<void> downloadMusicTrack(String trackId) async {
+    final trackIndex = _musicTracks.indexWhere((track) => track.id == trackId);
+    if (trackIndex == -1) return;
+
+    final track = _musicTracks[trackIndex];
+    final updatedTrack = await MusicTrack.downloadTrack(track);
+
+    // Update the track in the list
+    _musicTracks[trackIndex] = updatedTrack;
+
+    notifyListeners();
+  }
+
+  // Play background music
+  Future<void> playBackgroundMusic() async {
+    if (!_backgroundMusicEnabled) return;
+
+    await _playBackgroundMusic();
+  }
+
+  // Internal method to play background music
+  Future<void> _playBackgroundMusic() async {
+    if (_musicPlayer == null) {
+      await initMusicPlayer();
+    }
+
+    try {
+      final track = selectedMusicTrack;
+
+      // If track is not downloaded, download it first
+      if (!track.isDownloaded || track.localPath == null) {
+        final updatedTrack = await MusicTrack.downloadTrack(track);
+        final trackIndex = _musicTracks.indexWhere((t) => t.id == track.id);
+        if (trackIndex != -1) {
+          _musicTracks[trackIndex] = updatedTrack;
+        }
+
+        // If download failed, try to play from URL
+        if (!updatedTrack.isDownloaded) {
+          await _musicPlayer!.play(UrlSource(track.url));
+        } else {
+          await _musicPlayer!.play(DeviceFileSource(updatedTrack.localPath!));
+        }
+      } else {
+        // Play from local file
+        await _musicPlayer!.play(DeviceFileSource(track.localPath!));
+      }
+
+      // Set to loop
+      await _musicPlayer!.setReleaseMode(ReleaseMode.loop);
+
+      // Set volume
+      await _musicPlayer!.setVolume(0.5);
+    } catch (e) {
+      debugPrint('Error playing background music: $e');
+    }
+  }
+
+  // Pause background music
+  Future<void> pauseBackgroundMusic() async {
+    await _pauseBackgroundMusic();
+  }
+
+  // Resume background music
+  Future<void> resumeBackgroundMusic() async {
+    if (!_backgroundMusicEnabled) return;
+
+    await _resumeBackgroundMusic();
+  }
+
+  // Stop background music
+  Future<void> stopBackgroundMusic() async {
+    await _stopBackgroundMusic();
+  }
+
+  // Internal method to pause background music (keeps position)
+  Future<void> _pauseBackgroundMusic() async {
+    if (_musicPlayer != null) {
+      try {
+        await _musicPlayer!.pause();
+        debugPrint('Background music paused successfully');
+      } catch (e) {
+        debugPrint('Error pausing background music: $e');
+      }
+    }
+  }
+
+  // Internal method to resume background music from current position
+  Future<void> _resumeBackgroundMusic() async {
+    if (_musicPlayer != null) {
+      try {
+        await _musicPlayer!.resume();
+        debugPrint('Background music resumed successfully');
+      } catch (e) {
+        debugPrint('Error resuming background music: $e');
+        // If resume fails, try to play from current position
+        try {
+          await _playBackgroundMusic();
+        } catch (playError) {
+          debugPrint(
+              'Error playing background music after resume failure: $playError');
+        }
+      }
+    } else {
+      await _playBackgroundMusic();
+    }
+  }
+
+  // Internal method to stop background music
+  Future<void> _stopBackgroundMusic() async {
+    if (_musicPlayer != null) {
+      try {
+        await _musicPlayer!.stop();
+        debugPrint('Background music stopped successfully');
+      } catch (e) {
+        debugPrint('Error stopping background music: $e');
+        // Try to release resources if stop fails
+        try {
+          await _musicPlayer!.release();
+        } catch (releaseError) {
+          debugPrint('Error releasing music player: $releaseError');
+        }
+      }
+    }
+  }
+
+  // Helper method for testing
+  void setMusicPlayerForTesting(AudioPlayer player) {
+    _musicPlayer = player;
+  }
+
   // Schedule notification
   Future<void> scheduleNotification() async {
     if (!_notificationsEnabled || _reminderTime == null) return;
@@ -677,12 +897,19 @@ class AppState extends ChangeNotifier {
     _reminderTime = prefs.getString('reminderTime');
     _dailyExerciseCount = prefs.getInt('dailyExerciseCount') ?? 0;
 
+    // Load music settings
+    _backgroundMusicEnabled = prefs.getBool('backgroundMusicEnabled') ?? false;
+    _selectedMusicTrackId =
+        prefs.getString('selectedMusicTrackId') ?? 'calm_lake';
+
     // Load challenge progress
     _dailyChallengeProgress = prefs.getInt('dailyChallengeProgress') ?? 0;
     _weeklyChallengeProgress = prefs.getInt('weeklyChallengeProgress') ?? 0;
     _dailyChallengeDate = prefs.getString('dailyChallengeDate') ?? '';
     _weeklyChallengeStartDate =
         prefs.getString('weeklyChallengeStartDate') ?? '';
+    _weeklyChallengeLastUpdate =
+        prefs.getString('weeklyChallengeLastUpdate') ?? '';
 
     // Make sure level is in sync with points
     _updateLevel();
@@ -692,6 +919,11 @@ class AppState extends ChangeNotifier {
 
     // Check if we need to reset daily exercise count
     _checkAndResetDailyExerciseCount();
+
+    // Initialize music player if needed
+    if (_backgroundMusicEnabled) {
+      initMusicPlayer();
+    }
 
     notifyListeners();
   }
@@ -713,12 +945,18 @@ class AppState extends ChangeNotifier {
       await prefs.setString('reminderTime', _reminderTime!);
     }
 
+    // Save music settings
+    await prefs.setBool('backgroundMusicEnabled', _backgroundMusicEnabled);
+    await prefs.setString('selectedMusicTrackId', _selectedMusicTrackId);
+
     // Save challenge progress
     await prefs.setInt('dailyChallengeProgress', _dailyChallengeProgress);
     await prefs.setInt('weeklyChallengeProgress', _weeklyChallengeProgress);
     await prefs.setString('dailyChallengeDate', _dailyChallengeDate);
     await prefs.setString(
         'weeklyChallengeStartDate', _weeklyChallengeStartDate);
+    await prefs.setString(
+        'weeklyChallengeLastUpdate', _weeklyChallengeLastUpdate);
   }
 
   // Check if we need to reset daily/weekly challenges
@@ -745,7 +983,7 @@ class AppState extends ChangeNotifier {
     if (_weeklyChallengeStartDate != currentWeekStart) {
       _weeklyChallengeProgress = 0;
       _weeklyChallengeStartDate = currentWeekStart;
-
+      _weeklyChallengeLastUpdate = '';
       // Remove weekly challenge from completed challenges to allow it to be completed again
       _completedChallenges.remove('weekly_challenge');
     }
