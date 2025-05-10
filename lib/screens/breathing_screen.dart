@@ -25,7 +25,6 @@ class _BreathingScreenState extends State<BreathingScreen>
   late AnimationController
       _pulseController; // For phase transition pulse effect
   final AudioPlayer _audioPlayer = AudioPlayer();
-  bool _isAudioInitialized = false;
   late AppState _appState; // Store reference to AppState
 
   bool _isRunning = false;
@@ -110,55 +109,9 @@ class _BreathingScreenState extends State<BreathingScreen>
     // Removed automatic background music start. Music is now only controlled by the music widget.
   }
 
+  // Empty audio initialization method - kept for future use if needed
   Future<void> _initAudio() async {
-    try {
-      // This is just preparation for the actual audio files
-      // In a real implementation, proper asset paths would be used
-      _isAudioInitialized = true;
-    } catch (e) {
-      debugPrint('Error initializing audio: $e');
-    }
-  }
-
-  void _playPhaseSound(String phase) async {
-    if (!_appState.soundEnabled || !_isAudioInitialized) return;
-
-    try {
-      // This is a placeholder for actual audio file paths
-      // In a production app, you would have real audio files in your assets
-      String audioPath;
-      switch (phase) {
-        case 'inhale':
-          audioPath = 'assets/sounds/${_appState.selectedSound}/inhale.mp3';
-          break;
-        case 'hold':
-        case 'hold1':
-        case 'hold2':
-          audioPath = 'assets/sounds/${_appState.selectedSound}/hold.mp3';
-          break;
-        case 'exhale':
-          audioPath = 'assets/sounds/${_appState.selectedSound}/exhale.mp3';
-          break;
-        case 'completed':
-          audioPath = 'assets/sounds/${_appState.selectedSound}/complete.mp3';
-          break;
-        default:
-          audioPath = 'assets/sounds/${_appState.selectedSound}/inhale.mp3';
-      }
-
-      // For now, we'll use a beep sound as a placeholder
-      // In a production app, you would use actual audio files
-      // await _audioPlayer.play(AssetSource(audioPath));
-
-      // For now, play the beep at different volumes based on the phase
-      await _audioPlayer.stop();
-
-      // We don't actually play a sound here since we don't have the audio files
-      // This is just showing how the implementation would work
-      debugPrint('Would play sound: $audioPath');
-    } catch (e) {
-      debugPrint('Error playing sound: $e');
-    }
+    // Audio initialization is no longer needed as sound feature has been removed
   }
 
   @override
@@ -256,9 +209,7 @@ class _BreathingScreenState extends State<BreathingScreen>
       _controller.reset();
     });
 
-    // Play sound for the new phase (normalize the phase name to remove numbers)
-    String basePhaseKey = newPhaseKey.replaceAll(RegExp(r'[0-9]+$'), '');
-    _playPhaseSound(basePhaseKey);
+    // Sound feature has been removed
 
     // Show pulse animation for phase transition
     setState(() {
@@ -327,8 +278,7 @@ class _BreathingScreenState extends State<BreathingScreen>
       _currentPhaseDuration = 0;
     });
 
-    // Play completion sound
-    _playPhaseSound('completed');
+    // Sound feature has been removed
 
     // Removed automatic background music stop. Music is now only controlled by the music widget.
 
@@ -336,6 +286,9 @@ class _BreathingScreenState extends State<BreathingScreen>
     _appState.addPoints(10);
     _appState.updateDailyStreak();
     _appState.checkAllExercisesChallenge(widget.technique.name);
+
+    // Save exercise to history
+    await _appState.saveExerciseToHistory(widget.technique);
 
     // Show dialog with a slight delay and make it dismissible
     if (mounted) {

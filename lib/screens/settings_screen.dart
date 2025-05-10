@@ -92,22 +92,6 @@ class SettingsScreen extends StatelessWidget {
                 ),
               if (appState.notificationsEnabled) const SizedBox(height: 15),
               _buildSettingsCard(
-                title: 'Sound',
-                description: 'Choose breathing exercise sounds',
-                icon: Icons.music_note,
-                onTap: () {
-                  _showSoundSelectionDialog(context, appState);
-                },
-                trailing: Switch(
-                  value: appState.soundEnabled,
-                  onChanged: (value) {
-                    appState.toggleSound();
-                  },
-                  activeColor: AppTheme.primaryColor,
-                ),
-              ),
-              const SizedBox(height: 15),
-              _buildSettingsCard(
                 title: 'Background Music',
                 description: 'Play relaxing music during exercises',
                 icon: Icons.library_music,
@@ -165,96 +149,6 @@ class SettingsScreen extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-
-  void _showSoundSelectionDialog(BuildContext context, AppState appState) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Sound Selection'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SwitchListTile(
-              title: const Text('Enable Sound'),
-              value: appState.soundEnabled,
-              onChanged: (bool value) {
-                appState.toggleSound();
-                Navigator.pop(context);
-              },
-              activeColor: AppTheme.primaryColor,
-            ),
-            const Divider(),
-            const Text('Select Sound Type:'),
-            const SizedBox(height: 16),
-            _buildSoundOption(context, appState, 'Nature',
-                'Calming nature sounds', Icons.terrain, 'nature'),
-            _buildSoundOption(context, appState, 'Ocean', 'Gentle ocean waves',
-                Icons.waves, 'ocean'),
-            _buildSoundOption(
-                context,
-                appState,
-                'Meditation',
-                'Peaceful meditation bells',
-                Icons.self_improvement,
-                'meditation'),
-            const SizedBox(height: 10),
-            const Text(
-              'More sounds coming soon!',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSoundOption(
-    BuildContext context,
-    AppState appState,
-    String title,
-    String description,
-    IconData icon,
-    String soundKey,
-  ) {
-    return ListTile(
-      leading: Icon(icon, color: AppTheme.primaryColor),
-      title: Text(title),
-      subtitle: Text(
-        description,
-        style: const TextStyle(fontSize: 12),
-      ),
-      trailing: Radio<String>(
-        value: soundKey,
-        groupValue: appState.selectedSound,
-        onChanged: appState.soundEnabled
-            ? (value) {
-                if (value != null) {
-                  appState.setSelectedSound(value);
-                  Navigator.pop(context);
-                }
-              }
-            : null,
-        activeColor: AppTheme.primaryColor,
-      ),
-      enabled: appState.soundEnabled,
-      onTap: appState.soundEnabled
-          ? () {
-              appState.setSelectedSound(soundKey);
-              Navigator.pop(context);
-            }
-          : null,
     );
   }
 

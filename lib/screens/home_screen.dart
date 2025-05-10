@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/points_badge.dart';
+import '../models/exercise_history.dart';
 import 'technique_detail_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -223,81 +224,130 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _buildRecentHistory(BuildContext context) {
-    // For now, we'll use mock data for recent exercises
-    // In a real app, this would come from a database or shared preferences
-    final mockHistory = [
-      {
-        'technique': 'Box Breathing',
-        'date': DateTime.now().subtract(const Duration(hours: 5)),
-        'color': const Color(0xFF3CB371),
-        'icon': 'square',
-      },
-      {
-        'technique': 'Belly Breathing',
-        'date': DateTime.now().subtract(const Duration(days: 1)),
-        'color': const Color(0xFF4682B4),
-        'icon': 'wind',
-      },
-      {
-        'technique': '4-7-8 Breathing',
-        'date': DateTime.now().subtract(const Duration(days: 2)),
-        'color': const Color(0xFF5F9EA0),
-        'icon': 'moon',
-      },
-    ];
+    final appState = Provider.of<AppState>(context);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Recent Activity',
+    return FutureBuilder<List<ExerciseHistory>>(
+      future: appState.getRecentExerciseHistory(limit: 5),
+      builder: (context, snapshot) {
+        // Show loading indicator while waiting for data
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(20.0),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        // Show error message if there's an error
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Text(
+                'Error loading recent activity',
                 style: GoogleFonts.lato(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF2F4F4F),
+                  fontSize: 16,
+                  color: Colors.red,
                 ),
               ),
-              TextButton(
-                onPressed: () {
-                  // Navigate to full history screen
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Full history feature coming soon!'),
+            ),
+          );
+        }
+
+        // Get the history data
+        final history = snapshot.data ?? [];
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Recent Activity',
+                    style: GoogleFonts.lato(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF2F4F4F),
                     ),
-                  );
-                },
-                child: Text(
-                  'See All',
-                  style: GoogleFonts.lato(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.primaryColor,
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      // Navigate to full history screen
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Full history feature coming soon!'),
+                        ),
+                      );
+                    },
+                    child: Text(
+                      'See All',
+                      style: GoogleFonts.lato(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // Show message if no history
+            if (history.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Center(
+                  child: Column(
+                    children: [
+                      const Icon(
+                        FeatherIcons.activity,
+                        size: 40,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'No breathing exercises completed yet',
+                        style: GoogleFonts.lato(
+                          fontSize: 16,
+                          color: Colors.grey[600],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        'Complete an exercise to see it here',
+                        style: GoogleFonts.lato(
+                          fontSize: 14,
+                          color: Colors.grey[500],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
                 ),
+              )
+            else
+              // Use a Column instead of ListView for better initial rendering
+              Column(
+                children: List.generate(history.length, (index) {
+                  final item = history[index];
+                  return _buildHistoryItem(
+                    context,
+                    item.technique,
+                    item.date,
+                    item.color,
+                    item.iconName,
+                  );
+                }),
               ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        // Use a Column instead of ListView for better initial rendering
-        Column(
-          children: List.generate(mockHistory.length, (index) {
-            final item = mockHistory[index];
-            return _buildHistoryItem(
-              context,
-              item['technique'] as String,
-              item['date'] as DateTime,
-              item['color'] as Color,
-              item['icon'] as String,
-            );
-          }),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 

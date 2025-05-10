@@ -703,7 +703,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         final challengeId = incompleteChallenges[index];
         final challengeName =
             appState.challengeDescriptions[challengeId] ?? 'Unknown Challenge';
-        final progress = appState.getChallengeProgress(challengeId);
+        final progress = appState.getChallengeProgressSync(challengeId);
 
         return _buildChallengeProgressCard(
           context,

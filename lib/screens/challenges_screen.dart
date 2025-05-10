@@ -125,7 +125,7 @@ class ChallengesScreen extends StatelessWidget {
         final challengeId = allChallenges[index];
         final challengeName =
             appState.challengeDescriptions[challengeId] ?? 'Unknown Challenge';
-        final progress = appState.getChallengeProgress(challengeId);
+        final progress = appState.getChallengeProgressSync(challengeId);
         final isCompleted = progress['completed'] as bool;
         final currentProgress = progress['progress'] as int;
         final target = progress['target'] as int;

@@ -5,6 +5,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../main.dart';
 import '../models/music_track.dart';
+import '../models/exercise_history.dart';
+import '../database/database_helper.dart';
 
 // Define the BreathingTechnique class outside AppState
 class BreathingTechnique {
@@ -37,8 +39,6 @@ class AppState extends ChangeNotifier {
   int _dailyStreak = 0; // Track consecutive days
   String _lastExerciseDate = ''; // Track last exercise date
   int _exercisesCompleted = 0; // Track total completed exercises
-  bool _soundEnabled = false; // Sound is disabled by default
-  String _selectedSound = 'nature'; // Default sound option
   String? _reminderTime; // Daily reminder time
   int _dailyExerciseCount = 0; // Track exercises completed per day
 
@@ -248,8 +248,7 @@ class AppState extends ChangeNotifier {
   int get exercisesCompleted => _exercisesCompleted;
   Map<String, Map<String, dynamic>> get challengeRequirements =>
       _challengeRequirements;
-  bool get soundEnabled => _soundEnabled;
-  String get selectedSound => _selectedSound;
+
   String? get reminderTime => _reminderTime;
   int get dailyChallengeProgress => _dailyChallengeProgress;
   int get weeklyChallengeProgress => _weeklyChallengeProgress;
@@ -351,13 +350,14 @@ class AppState extends ChangeNotifier {
     try {
       final now = DateTime.now();
       final today = now.toIso8601String().split('T')[0];
-      
+
       // Safely calculate week start
       DateTime weekStart = now.subtract(Duration(days: now.weekday - 1));
       final currentWeekStart = weekStart.toIso8601String().split('T')[0];
 
       // Validate stored date before comparison
-      if (_weeklyChallengeStartDate.isEmpty || _weeklyChallengeStartDate != currentWeekStart) {
+      if (_weeklyChallengeStartDate.isEmpty ||
+          _weeklyChallengeStartDate != currentWeekStart) {
         _weeklyChallengeProgress = 0;
         _weeklyChallengeStartDate = currentWeekStart;
         _weeklyChallengeLastUpdate = '';
@@ -573,6 +573,46 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  // Save completed exercise to history
+  Future<void> saveExerciseToHistory(BreathingTechnique technique) async {
+    try {
+      // Create exercise history entry
+      final exerciseHistory = ExerciseHistory(
+        technique: technique.name,
+        date: DateTime.now(),
+        color: technique.color,
+        iconName: technique.iconName,
+      );
+
+      // Save to database
+      await DatabaseHelper.instance
+          .saveExerciseHistory(exerciseHistory.toMap());
+
+      // Notify listeners to update UI
+      notifyListeners();
+    } catch (e) {
+      // Handle error silently in production
+      debugPrint('Error saving exercise history: $e');
+    }
+  }
+
+  // Get recent exercise history
+  Future<List<ExerciseHistory>> getRecentExerciseHistory(
+      {int limit = 3}) async {
+    try {
+      // Get history from database
+      final historyMaps =
+          await DatabaseHelper.instance.getExerciseHistory(limit: limit);
+
+      // Convert maps to ExerciseHistory objects
+      return historyMaps.map((map) => ExerciseHistory.fromMap(map)).toList();
+    } catch (e) {
+      // Handle error silently in production
+      debugPrint('Error getting exercise history: $e');
+      return [];
+    }
+  }
+
   // Toggle notifications
   void toggleNotifications() {
     _notificationsEnabled = !_notificationsEnabled;
@@ -583,20 +623,6 @@ class AppState extends ChangeNotifier {
   // Set reminder time
   void setReminderTime(String time) {
     _reminderTime = time;
-    _saveToPrefs();
-    notifyListeners();
-  }
-
-  // Toggle sound
-  void toggleSound() {
-    _soundEnabled = !_soundEnabled;
-    _saveToPrefs();
-    notifyListeners();
-  }
-
-  // Set selected sound
-  void setSelectedSound(String sound) {
-    _selectedSound = sound;
     _saveToPrefs();
     notifyListeners();
   }
@@ -892,8 +918,6 @@ class AppState extends ChangeNotifier {
     _lastExerciseDate = prefs.getString('lastExerciseDate') ?? '';
     _completedChallenges = prefs.getStringList('completedChallenges') ?? [];
     _exercisesCompleted = prefs.getInt('exercisesCompleted') ?? 0;
-    _soundEnabled = prefs.getBool('soundEnabled') ?? false;
-    _selectedSound = prefs.getString('selectedSound') ?? 'nature';
     _reminderTime = prefs.getString('reminderTime');
     _dailyExerciseCount = prefs.getInt('dailyExerciseCount') ?? 0;
 
@@ -938,8 +962,6 @@ class AppState extends ChangeNotifier {
     await prefs.setString('lastExerciseDate', _lastExerciseDate);
     await prefs.setStringList('completedChallenges', _completedChallenges);
     await prefs.setInt('exercisesCompleted', _exercisesCompleted);
-    await prefs.setBool('soundEnabled', _soundEnabled);
-    await prefs.setString('selectedSound', _selectedSound);
     await prefs.setInt('dailyExerciseCount', _dailyExerciseCount);
     if (_reminderTime != null) {
       await prefs.setString('reminderTime', _reminderTime!);
@@ -990,7 +1012,7 @@ class AppState extends ChangeNotifier {
   }
 
   // Helper method to check challenge progress
-  Map<String, dynamic> getChallengeProgress(String challengeId) {
+  Future<Map<String, dynamic>> getChallengeProgress(String challengeId) async {
     if (!_challengeRequirements.containsKey(challengeId)) {
       return {'completed': false, 'progress': 0, 'target': 0};
     }
@@ -1020,8 +1042,61 @@ class AppState extends ChangeNotifier {
         description = 'Complete 5 breathing exercises this week';
         break;
       case 'exercises':
-        // This is a special case handled differently
-        progress = 0; // Placeholder, handled in other methods
+        // Get the count of unique completed exercises
+        final prefs = await SharedPreferences.getInstance();
+        Set<String> completedExercises = Set<String>.from(
+            prefs.getStringList('completedExerciseTypes') ?? []);
+        progress = completedExercises.length;
+        target =
+            _breathingTechniques.length; // Total number of breathing techniques
+        break;
+    }
+
+    return {
+      'completed': completed,
+      'progress': progress,
+      'target': target,
+      'description': description,
+    };
+  }
+
+  // Synchronous version for UI that doesn't need the exact exercise count
+  Map<String, dynamic> getChallengeProgressSync(String challengeId) {
+    if (!_challengeRequirements.containsKey(challengeId)) {
+      return {'completed': false, 'progress': 0, 'target': 0};
+    }
+
+    final requirement = _challengeRequirements[challengeId]!;
+    final bool completed = _completedChallenges.contains(challengeId);
+    int progress = 0;
+    int target = requirement['target'] as int;
+    String description = requirement['description'] as String? ?? '';
+
+    switch (requirement['type']) {
+      case 'streak':
+        progress = _dailyStreak;
+        break;
+      case 'count':
+        progress = _exercisesCompleted;
+        break;
+      case 'level':
+        progress = _level;
+        break;
+      case 'daily':
+        progress = _dailyChallengeProgress;
+        description = 'Complete one breathing exercise today';
+        break;
+      case 'weekly':
+        progress = _weeklyChallengeProgress;
+        description = 'Complete 5 breathing exercises this week';
+        break;
+      case 'exercises':
+        // For synchronous version, we'll use a cached value or a placeholder
+        // This is just an estimate for UI purposes
+        progress = _completedChallenges.contains('all_exercises')
+            ? _breathingTechniques.length
+            : (_exercisesCompleted ~/ 2).clamp(0, _breathingTechniques.length);
+        target = _breathingTechniques.length;
         break;
     }
 

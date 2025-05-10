@@ -18,8 +18,9 @@ class DatabaseHelper {
     final path = join(await getDatabasesPath(), 'breathly_database.db');
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDb,
+      onUpgrade: _upgradeDb,
     );
   }
 
@@ -31,6 +32,30 @@ class DatabaseHelper {
         timestamp TEXT NOT NULL
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE exercise_history(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        technique TEXT NOT NULL,
+        date TEXT NOT NULL,
+        color INTEGER NOT NULL,
+        iconName TEXT NOT NULL
+      )
+    ''');
+  }
+
+  Future<void> _upgradeDb(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('''
+        CREATE TABLE exercise_history(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          technique TEXT NOT NULL,
+          date TEXT NOT NULL,
+          color INTEGER NOT NULL,
+          iconName TEXT NOT NULL
+        )
+      ''');
+    }
   }
 
   // Save mood to database
@@ -50,5 +75,22 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> getMoods() async {
     final db = await database;
     return await db.query('moods', orderBy: 'timestamp DESC');
+  }
+
+  // Save exercise history
+  Future<int> saveExerciseHistory(Map<String, dynamic> exerciseData) async {
+    final db = await database;
+    return await db.insert('exercise_history', exerciseData);
+  }
+
+  // Get exercise history
+  Future<List<Map<String, dynamic>>> getExerciseHistory(
+      {int limit = 10}) async {
+    final db = await database;
+    return await db.query(
+      'exercise_history',
+      orderBy: 'date DESC',
+      limit: limit,
+    );
   }
 }
