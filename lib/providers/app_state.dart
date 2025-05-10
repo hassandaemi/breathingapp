@@ -376,7 +376,6 @@ class AppState extends ChangeNotifier {
       }
     } catch (e) {
       // Prevent crashes by catching any exceptions
-      print('Error in _updateWeeklyChallenge: $e');
     }
   }
 

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_feather_icons/flutter_feather_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
+import '../database/database_helper.dart';
 import 'settings_screen.dart';
 import 'dart:async';
 
@@ -19,6 +21,26 @@ class _ProfileScreenState extends State<ProfileScreen>
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   Timer? _levelUpTimer;
+
+  // Mood analysis state
+  List<Map<String, dynamic>> _moodData = [];
+  bool _isLoadingMoodData = true;
+
+  final Map<String, double> _moodScores = {
+    'Happy': 5.0,
+    'Relaxed': 4.0,
+    'Neutral': 3.0,
+    'Tired': 2.0,
+    'Angry': 1.0,
+  };
+
+  final Map<String, Color> _moodColors = {
+    'Happy': Colors.green,
+    'Relaxed': Colors.blue,
+    'Neutral': Colors.grey,
+    'Tired': Colors.orange,
+    'Angry': Colors.red,
+  };
 
   @override
   void initState() {
@@ -38,7 +60,26 @@ class _ProfileScreenState extends State<ProfileScreen>
     // Check for level up after widget is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkForLevelUp();
+      _loadMoodData(); // Load mood data when screen initializes
     });
+  }
+
+  Future<void> _loadMoodData() async {
+    try {
+      final moodEntries = await DatabaseHelper.instance.getMoods();
+      if (mounted) {
+        setState(() {
+          _moodData = moodEntries;
+          _isLoadingMoodData = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingMoodData = false;
+        });
+      }
+    }
   }
 
   @override
@@ -428,7 +469,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           ),
         ),
 
-        // Mood History Section
+        // Mood Analysis Section
         Container(
           padding: EdgeInsets.all(screenSize.width * 0.06),
           margin: EdgeInsets.symmetric(horizontal: screenSize.width * 0.04),
@@ -450,7 +491,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Mood History',
+                    'Mood Analysis',
                     style: GoogleFonts.lato(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -461,6 +502,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                     icon: const Icon(FeatherIcons.refreshCw, size: 18),
                     onPressed: () {
                       // Refresh mood data
+                      setState(() {
+                        _isLoadingMoodData = true;
+                      });
+                      _loadMoodData();
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Refreshing mood data...'),
@@ -474,7 +519,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ],
               ),
               SizedBox(height: screenSize.height * 0.02),
-              _buildMoodHistory(context),
+              _buildMoodAnalysis(context),
             ],
           ),
         ),
@@ -484,108 +529,499 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _buildMoodHistory(BuildContext context) {
-    // Mock mood data - in a real app, this would come from a database
-    final mockMoodData = [
-      {'mood': '😊', 'date': 'April 1, 2025', 'technique': 'Box Breathing'},
-      {'mood': '😌', 'date': 'March 30, 2025', 'technique': 'Belly Breathing'},
-      {'mood': '😔', 'date': 'March 28, 2025', 'technique': '4-7-8 Breathing'},
-      {'mood': '😊', 'date': 'March 27, 2025', 'technique': 'Box Breathing'},
-      {
-        'mood': '😌',
-        'date': 'March 25, 2025',
-        'technique': 'Alternate Nostril'
-      },
-    ];
+  Widget _buildMoodAnalysis(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+
+    if (_isLoadingMoodData) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (_moodData.isEmpty) {
+      return _buildEmptyMoodState(context);
+    }
 
     return Column(
       children: [
-        // Mood summary row
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildMoodSummaryItem('😊', '8', 'Happy'),
-            _buildMoodSummaryItem('😌', '12', 'Relaxed'),
-            _buildMoodSummaryItem('😔', '3', 'Sad'),
-          ],
-        ),
-        const SizedBox(height: 20),
-
-        // Mood history list
-        Column(
-          children: List.generate(mockMoodData.length, (index) {
-            final item = mockMoodData[index];
-            return ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Text(
-                item['mood'] as String,
-                style: const TextStyle(fontSize: 24),
-              ),
-              title: Text(
-                item['technique'] as String,
-                style: GoogleFonts.lato(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
-                ),
-              ),
-              subtitle: Text(
-                item['date'] as String,
-                style: GoogleFonts.lato(
-                  color: Colors.grey[600],
-                  fontSize: 14,
-                ),
-              ),
-              dense: true,
-            );
-          }),
-        ),
-
-        // See all button
-        TextButton(
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Full mood history coming soon!'),
-              ),
-            );
-          },
-          child: Text(
-            'See All Mood Records',
-            style: GoogleFonts.lato(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.primaryColor,
-            ),
-          ),
-        ),
+        _buildEnhancedMoodChart(context),
+        SizedBox(height: screenSize.height * 0.03),
+        _buildMoodDistribution(context),
+        SizedBox(height: screenSize.height * 0.02),
+        _buildMoodInsights(context),
       ],
     );
   }
 
-  Widget _buildMoodSummaryItem(String emoji, String count, String label) {
-    return Column(
-      children: [
-        Text(
-          emoji,
-          style: const TextStyle(fontSize: 28),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          count,
-          style: GoogleFonts.lato(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
+  Widget _buildEmptyMoodState(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.mood,
+            size: 80,
+            color: Colors.grey[300],
           ),
-        ),
-        Text(
-          label,
-          style: GoogleFonts.lato(
-            color: Colors.grey[600],
-            fontSize: 12,
+          const SizedBox(height: 16),
+          Text(
+            'No mood data yet',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[600],
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Text(
+              'Complete breathing exercises to track your mood patterns',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.grey[500],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            child: const Text('Start Breathing Exercise'),
+          ),
+        ],
+      ),
     );
+  }
+
+  Widget _buildEnhancedMoodChart(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    List<FlSpot> spots = [];
+
+    if (_moodData.isNotEmpty) {
+      final recentMoods =
+          _moodData.length > 14 ? _moodData.sublist(0, 14) : _moodData;
+
+      spots = recentMoods.asMap().entries.map((entry) {
+        final mood = entry.value['mood'] as String;
+        final score = _moodScores[mood] ?? 3.0;
+        return FlSpot(entry.key.toDouble(), score);
+      }).toList();
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha((0.05 * 255).toInt()),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: EdgeInsets.all(screenSize.width * 0.04),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Your Mood Trend',
+            style: GoogleFonts.lato(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: const Color(0xFF2F4F4F),
+            ),
+          ),
+          SizedBox(height: screenSize.height * 0.02),
+          SizedBox(
+            height: screenSize.height * 0.2,
+            child: spots.isEmpty
+                ? Center(
+                    child: Text(
+                      'Not enough data to display chart',
+                      style: TextStyle(
+                        color: Colors.grey[500],
+                        fontSize: 14,
+                      ),
+                    ),
+                  )
+                : LineChart(
+                    LineChartData(
+                      gridData: FlGridData(
+                        show: true,
+                        drawVerticalLine: true,
+                        horizontalInterval: 1,
+                        verticalInterval: 1,
+                        getDrawingHorizontalLine: (value) {
+                          return FlLine(
+                            color: Colors.grey.withAlpha((0.2 * 255).toInt()),
+                            strokeWidth: 1,
+                          );
+                        },
+                        getDrawingVerticalLine: (value) {
+                          return FlLine(
+                            color: Colors.grey.withAlpha((0.2 * 255).toInt()),
+                            strokeWidth: 1,
+                          );
+                        },
+                      ),
+                      titlesData: FlTitlesData(
+                        bottomTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            interval: 1,
+                            getTitlesWidget: (value, meta) {
+                              String text = '';
+                              switch (value.toInt()) {
+                                case 1:
+                                  text = 'Angry';
+                                  break;
+                                case 2:
+                                  text = 'Tired';
+                                  break;
+                                case 3:
+                                  text = 'Neutral';
+                                  break;
+                                case 4:
+                                  text = 'Relaxed';
+                                  break;
+                                case 5:
+                                  text = 'Happy';
+                                  break;
+                              }
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: Text(
+                                  text,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        rightTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                      ),
+                      borderData: FlBorderData(
+                        show: true,
+                        border: Border.all(
+                          color: Colors.grey.withAlpha((0.2 * 255).toInt()),
+                        ),
+                      ),
+                      minY: 0.5,
+                      maxY: 5.5,
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: spots,
+                          isCurved: true,
+                          gradient: LinearGradient(
+                            colors: [
+                              const Color(0xFF4CAF50)
+                                  .withAlpha((0.8 * 255).toInt()),
+                              const Color(0xFF2196F3)
+                                  .withAlpha((0.6 * 255).toInt()),
+                            ],
+                          ),
+                          barWidth: 4,
+                          isStrokeCapRound: true,
+                          dotData: FlDotData(
+                            show: true,
+                            getDotPainter: (spot, percent, barData, index) {
+                              return FlDotCirclePainter(
+                                radius: 6,
+                                color: Colors.white,
+                                strokeWidth: 2,
+                                strokeColor: AppTheme.primaryColor,
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMoodDistribution(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+
+    Map<String, int> moodCounts = {};
+    for (var item in _moodData) {
+      final mood = item['mood'] as String;
+      moodCounts[mood] = (moodCounts[mood] ?? 0) + 1;
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha((0.05 * 255).toInt()),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: EdgeInsets.all(screenSize.width * 0.04),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Mood Distribution',
+            style: GoogleFonts.lato(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: const Color(0xFF2F4F4F),
+            ),
+          ),
+          SizedBox(height: screenSize.height * 0.02),
+          ...moodCounts.entries.map((entry) {
+            final percentage = (entry.value / _moodData.length) * 100;
+            final color = _moodColors[entry.key] ?? Colors.grey;
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: color.withAlpha((0.3 * 255).toInt()),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Text(
+                            _getMoodEmoji(entry.key),
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        entry.key,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${percentage.toStringAsFixed(1)}%',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: color,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: LinearProgressIndicator(
+                      value: percentage / 100,
+                      backgroundColor:
+                          Colors.grey.withAlpha((0.1 * 255).toInt()),
+                      minHeight: 6,
+                      color: color,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMoodInsights(BuildContext context) {
+    if (_moodData.isEmpty || _moodData.length < 3) {
+      return const SizedBox.shrink();
+    }
+
+    // Calculate dominant mood
+    Map<String, int> moodCounts = {};
+    for (var item in _moodData) {
+      final mood = item['mood'] as String;
+      moodCounts[mood] = (moodCounts[mood] ?? 0) + 1;
+    }
+
+    String dominantMood = '';
+    int maxCount = 0;
+
+    moodCounts.forEach((mood, count) {
+      if (count > maxCount) {
+        maxCount = count;
+        dominantMood = mood;
+      }
+    });
+
+    // Calculate mood trend (improving, worsening, or stable)
+    String moodTrend = 'stable';
+    if (_moodData.length >= 5) {
+      final recentMoods = _moodData.sublist(0, 5);
+      double avgRecent = 0;
+
+      for (var item in recentMoods) {
+        final mood = item['mood'] as String;
+        avgRecent += _moodScores[mood] ?? 3.0;
+      }
+      avgRecent /= recentMoods.length;
+
+      if (avgRecent > 3.5) {
+        moodTrend = 'improving';
+      } else if (avgRecent < 2.5) {
+        moodTrend = 'worsening';
+      }
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppTheme.primaryColor.withAlpha((0.8 * 255).toInt()),
+            AppTheme.primaryColor.withAlpha((0.6 * 255).toInt()),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryColor.withAlpha((0.3 * 255).toInt()),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.lightbulb_outline,
+                color: Colors.white,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Mood Insights',
+                style: GoogleFonts.lato(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Your dominant mood is $dominantMood',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _getMoodTrendMessage(moodTrend, dominantMood),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _getMoodAdvice(dominantMood),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getMoodEmoji(String mood) {
+    switch (mood) {
+      case 'Happy':
+        return '😊';
+      case 'Relaxed':
+        return '😌';
+      case 'Neutral':
+        return '😐';
+      case 'Tired':
+        return '😓';
+      case 'Angry':
+        return '😡';
+      default:
+        return '😐';
+    }
+  }
+
+  String _getMoodTrendMessage(String trend, String dominantMood) {
+    switch (trend) {
+      case 'improving':
+        return 'Your mood has been improving recently!';
+      case 'worsening':
+        return 'Your mood has been declining recently.';
+      default:
+        return 'Your mood has been relatively stable.';
+    }
+  }
+
+  String _getMoodAdvice(String dominantMood) {
+    switch (dominantMood) {
+      case 'Happy':
+        return 'Keep up the good work with regular breathing exercises!';
+      case 'Relaxed':
+        return 'Your breathing practice is helping you maintain calm.';
+      case 'Neutral':
+        return 'Try increasing your breathing practice to boost your mood.';
+      case 'Tired':
+        return 'Consider energizing breathing techniques like Bellows Breath.';
+      case 'Angry':
+        return 'Deep breathing can help manage stress and reduce anger.';
+      default:
+        return 'Regular breathing practice can help improve your mood.';
+    }
   }
 
   Widget _buildEmptyChallengeState(BuildContext context) {

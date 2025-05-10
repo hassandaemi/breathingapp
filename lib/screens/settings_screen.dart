@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
 import '../models/music_track.dart';
-import 'mood_analysis_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -104,25 +103,6 @@ class SettingsScreen extends StatelessWidget {
                     appState.toggleBackgroundMusic();
                   },
                   activeColor: AppTheme.primaryColor,
-                ),
-              ),
-              const SizedBox(height: 15),
-              _buildSettingsCard(
-                title: 'Mood Analysis',
-                description: 'View your mood history and trends',
-                icon: Icons.insights,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const MoodAnalysisScreen(),
-                    ),
-                  );
-                },
-                trailing: const Icon(
-                  Icons.arrow_forward_ios,
-                  size: 20,
-                  color: Colors.grey,
                 ),
               ),
               const SizedBox(height: 15),
