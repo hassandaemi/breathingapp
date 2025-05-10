@@ -87,10 +87,19 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget>
       orElse: () => _appState.musicTracks.first,
     );
     try {
+      // Check if the track is downloaded and available locally
       if (track.isDownloaded && track.localPath != null) {
         await _audioPlayer.setSource(DeviceFileSource(track.localPath!));
       } else {
-        await _audioPlayer.setSource(UrlSource(track.url));
+        // Try to load from network, but catch network errors
+        try {
+          await _audioPlayer.setSource(UrlSource(track.url));
+        } catch (e) {
+          setState(() {
+            _error = 'No internet connection or music unavailable';
+          });
+          return;
+        }
       }
       // Preload duration for accurate timeline
       final d = await _audioPlayer.getDuration();
@@ -101,8 +110,8 @@ class _MusicPlayerWidgetState extends State<MusicPlayerWidget>
       }
     } catch (e) {
       setState(() {
-        // Create a more concise error message
-        _error = 'Loading error: ${e.toString().split(':').first}';
+        // Show a user-friendly error for any failure
+        _error = 'Music loading failed. Please check your connection.';
       });
     }
   }
